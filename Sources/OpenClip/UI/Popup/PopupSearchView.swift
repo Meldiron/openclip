@@ -139,6 +139,7 @@ public struct PopupSearchView: View {
             }
         }
         .frame(width: PopupMetrics.searchPanelContentWidth)
+        .background(CommandDigitCatcher { row in runRow(at: row - 1) })
         .clipShape(RoundedRectangle(cornerRadius: PopupMetrics.searchCornerRadius, style: .continuous))
         .onPreferenceChange(SearchHoverFramePreferenceKey.self) { frames in
             MainActor.assumeIsolated {
@@ -177,12 +178,9 @@ public struct PopupSearchView: View {
                 .onSubmit { runSelected() }
                 .onKeyPress { press in
                     // Attached to the focused field: Escape drops the scope (or exits search),
-                    // up/down move the result selection, ⌘1…⌘9 run a row outright.
-                    if press.modifiers.contains(.command),
-                       let position = press.characters.first?.wholeNumberValue,
-                       (1...Self.maxShortcutRows).contains(position) {
-                        return runRow(at: position - 1) ? .handled : .ignored
-                    }
+                    // up/down move the result selection. ⌘-digits never arrive here — a
+                    // command-modified key is dispatched through `performKeyEquivalent` and never
+                    // reaches `keyDown:` — so those live in `CommandDigitCatcher` below.
                     if press.key == .escape {
                         exitSearch()
                         return .handled
@@ -345,6 +343,20 @@ public struct PopupSearchView: View {
     /// How many rows carry a ⌘-digit shortcut: ⌘1…⌘9. Rows past the ninth have none — ⌘0 is not
     /// a tenth row, it is simply unhandled.
     static let maxShortcutRows = 9
+
+    /// The 1-based row a ⌘-digit event points at, or nil when the event is not one. Pure, so the
+    /// modifier rules are testable without a window: exactly Command (⌥/⇧/⌃ combinations are
+    /// somebody else's shortcut), and a single digit 1...9.
+    static func commandDigitRow(for event: NSEvent) -> Int? {
+        let modifiers = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad, .help])
+        guard modifiers == .command else { return nil }
+        guard let characters = event.charactersIgnoringModifiers, characters.count == 1,
+              let digit = characters.first?.wholeNumberValue,
+              (1...maxShortcutRows).contains(digit) else { return nil }
+        return digit
+    }
 
     /// The shortcut label for a row, or nil past the ninth.
     static func shortcutHint(forRow index: Int) -> String? {
@@ -531,6 +543,43 @@ public struct PopupSearchView: View {
             }
         } else if hoveredTarget == target {
             hoveredTarget = nil
+        }
+    }
+}
+
+
+// MARK: - ⌘-digit Key Equivalents
+
+/// Catches ⌘1…⌘9 for the palette. It has to be an AppKit view: a command-modified key is
+/// dispatched by `NSApplication` through `performKeyEquivalent` down the view tree and is
+/// consumed there — it never becomes a `keyDown:`, so SwiftUI's `onKeyPress` (and the focused
+/// text field) never see it, and an unhandled one ends in the system beep. `performKeyEquivalent`
+/// walks *every* view in the tree regardless of hit-testing, so a zero-size background view is
+/// enough. The handler is refreshed on each SwiftUI update so it always runs against the current
+/// result list.
+private struct CommandDigitCatcher: NSViewRepresentable {
+    /// Runs the 1-based row, returning false when there is none (the event then falls through).
+    let onRow: @MainActor (Int) -> Bool
+
+    func makeNSView(context: Context) -> CatcherView {
+        let view = CatcherView()
+        view.onRow = onRow
+        return view
+    }
+
+    func updateNSView(_ nsView: CatcherView, context: Context) {
+        nsView.onRow = onRow
+    }
+
+    final class CatcherView: NSView {
+        var onRow: (@MainActor (Int) -> Bool)?
+
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            if let row = PopupSearchView.commandDigitRow(for: event),
+               MainActor.assumeIsolated({ onRow?(row) ?? false }) {
+                return true
+            }
+            return super.performKeyEquivalent(with: event)
         }
     }
 }

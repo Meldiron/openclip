@@ -4,9 +4,12 @@ import SwiftUI
 import Core
 @testable import OpenClip
 
-/// ⌘1…⌘9 select a palette row outright. The keys are attached to the palette's focused field, so
-/// they exist only while the palette is open — pressing ⌘2 anywhere else is none of OpenClip's
-/// business.
+/// ⌘1…⌘9 select a palette row outright.
+///
+/// These tests drive `performKeyEquivalent` — the path `NSApplication` actually uses for a
+/// command-modified key. An earlier version of this suite called `panel.sendEvent`, which skips
+/// the key-equivalent dispatch and delivers straight to `keyDown:`; it passed while the shipped
+/// app only beeped, because SwiftUI's `onKeyPress` never sees a ⌘-digit.
 @MainActor
 final class PaletteShortcutTests: XCTestCase {
     private final class Recorder {
@@ -26,6 +29,27 @@ final class PaletteShortcutTests: XCTestCase {
             appPolicy: .default
         )
         return ActionContext(selection: selection, modifiers: [])
+    }
+
+    /// Only plain ⌘ + 1...9 counts: a bare digit types into the field, and ⌘⌥/⌘⇧/⌃ combinations
+    /// belong to somebody else.
+    func testCommandDigitParsing() throws {
+        func event(_ characters: String, _ flags: NSEvent.ModifierFlags) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
+                context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                isARepeat: false, keyCode: 0
+            ))
+        }
+        XCTAssertEqual(PopupSearchView.commandDigitRow(for: try event("1", [.command])), 1)
+        XCTAssertEqual(PopupSearchView.commandDigitRow(for: try event("9", [.command])), 9)
+        XCTAssertEqual(PopupSearchView.commandDigitRow(for: try event("3", [.command, .capsLock])), 3,
+                       "caps lock rides along in every event and must not disarm the shortcut")
+        XCTAssertNil(PopupSearchView.commandDigitRow(for: try event("0", [.command])), "⌘0 is not a row")
+        XCTAssertNil(PopupSearchView.commandDigitRow(for: try event("2", [])), "a bare digit types")
+        XCTAssertNil(PopupSearchView.commandDigitRow(for: try event("2", [.command, .option])))
+        XCTAssertNil(PopupSearchView.commandDigitRow(for: try event("2", [.command, .shift])))
+        XCTAssertNil(PopupSearchView.commandDigitRow(for: try event("a", [.command])))
     }
 
     func testShortcutHintsCoverTheFirstNineRowsOnly() {
@@ -76,11 +100,50 @@ final class PaletteShortcutTests: XCTestCase {
             isARepeat: false,
             keyCode: 19   // kVK_ANSI_2
         ))
-        panel.sendEvent(event)
+        XCTAssertTrue(panel.performKeyEquivalent(with: event),
+                      "the palette must consume ⌘2 — an unhandled key equivalent is what beeps")
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
 
         XCTAssertEqual(recorder.performed, ["mock.second"],
                        "⌘2 must run the second row, not the selected one")
+    }
+
+    /// The production stack, not a hand-built palette: the controller's real panel, PopupView and
+    /// palette, asked through the same `performKeyEquivalent` entry point `NSApplication` uses.
+    /// This is what proves the catcher is reachable inside the app's actual view tree.
+    func testCommandDigitIsConsumedByTheRealPalettePanel() throws {
+        TestIsolation.reset()
+        defer { TestIsolation.reset() }
+        ActionRegistry.shared.register(action: makeAction("mock.palette.row"))
+
+        let store = MemorySettingsStore()
+        let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))
+        let controller = PopupWindowController(
+            resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard),
+            settingsStore: store
+        )
+        let screenBounds = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+        let selection = SelectionContext(
+            text: "hello world",
+            sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"),
+            cursorPosition: CGPoint(x: screenBounds.midX, y: screenBounds.midY),
+            timestamp: Date(),
+            appPolicy: .default
+        )
+        controller.show(for: selection, pasteAvailable: true, initialMode: .search)
+        defer { controller.hide() }
+        let panel = try XCTUnwrap(controller.panel)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+
+        let event = try XCTUnwrap(NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [.command],
+            timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
+            context: nil, characters: "1", charactersIgnoringModifiers: "1", isARepeat: false, keyCode: 18
+        ))
+
+        XCTAssertTrue(panel.performKeyEquivalent(with: event),
+                      "⌘1 must be consumed inside the real palette panel — an unhandled key equivalent beeps")
     }
 
     /// A digit past the end of the list does nothing at all — no run, no crash.
@@ -111,7 +174,8 @@ final class PaletteShortcutTests: XCTestCase {
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
             context: nil, characters: "5", charactersIgnoringModifiers: "5", isARepeat: false, keyCode: 23
         ))
-        panel.sendEvent(event)
+        XCTAssertFalse(panel.performKeyEquivalent(with: event),
+                       "a digit past the results must fall through, not be swallowed")
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
 
         XCTAssertTrue(recorder.performed.isEmpty)
