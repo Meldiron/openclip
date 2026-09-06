@@ -41,6 +41,25 @@ public final class ActionRegistry: ObservableObject, Sendable {
         sortActions()
     }
     
+    /// Maps each sub-action to the row that provides it (`SubActionProviding`: the AI Tools
+    /// launcher, group rows), so `sortActions` can place children with their parent. A child the
+    /// user has ordered explicitly is left alone — an `action.order` entry always outranks
+    /// inheritance — and the first provider claiming a child wins, so membership stays
+    /// single-valued. One level only: a child never re-parents through another child.
+    private func subActionParents(explicitlyOrderedIDs: [String: Int]) -> [String: String] {
+        let resolver = SubActionResolver()
+        var parents: [String: String] = [:]
+        for parent in registeredActions where parent is any SubActionProviding {
+            for child in resolver.subActions(of: parent, in: registeredActions) {
+                guard child.id != parent.id,
+                      explicitlyOrderedIDs[child.id] == nil,
+                      parents[child.id] == nil else { continue }
+                parents[child.id] = parent.id
+            }
+        }
+        return parents
+    }
+
     private func sortActions() {
         let order = settingsStore.get(.actionOrder)
         let orderIndexMap: [String: Int] = Dictionary(
@@ -48,24 +67,45 @@ public final class ActionRegistry: ObservableObject, Sendable {
             uniquingKeysWith: { first, _ in first }
         )
 
+        // A row that opens into sub-actions (the AI Tools launcher, group rows) owns where its
+        // children sit: flat surfaces — the search palette above all — list the children instead
+        // of the parent row, so a child that inherits nothing lands at the very end of the
+        // catalog no matter where the user dragged the parent. AI presets are the visible case:
+        // they carry chrome source `.ai`, which is neither user-ordered nor builtin, so "AI Tools
+        // first" in Preferences still left every AI command last in the palette.
+        let parentIDByChildID = subActionParents(explicitlyOrderedIDs: orderIndexMap)
+        let actionsByID = Dictionary(registeredActions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
         // Tier classification:
         // Tier 0: Explicitly ordered by user in `action.order` (sorted by rank in orderIndexMap)
         // Tier 1: Un-ordered built-in actions (sorted stably by insertion order)
         // Tier 2: Un-ordered extensions/other actions (sorted stably by insertion order)
-        let ranked: [(action: any Action, tier: Int, rank: Int, stableOffset: Int)] = registeredActions.enumerated().map { offset, action in
+        // A child adopts its parent's whole classification and sorts immediately after it
+        // (`subRank` 1), so it follows the parent wherever the parent lands.
+        func placement(of action: any Action) -> (tier: Int, rank: Int) {
             if let index = orderIndexMap[action.id] {
-                return (action, 0, index, offset)
+                return (0, index)
             } else if ActionIdentity.isBuiltin(action) {
-                return (action, 1, 0, offset)
+                return (1, 0)
             } else {
-                return (action, 2, 0, offset)
+                return (2, 0)
             }
+        }
+
+        let ranked: [(action: any Action, tier: Int, rank: Int, subRank: Int, stableOffset: Int)] = registeredActions.enumerated().map { offset, action in
+            if let parentID = parentIDByChildID[action.id], let parent = actionsByID[parentID] {
+                let inherited = placement(of: parent)
+                return (action, inherited.tier, inherited.rank, 1, offset)
+            }
+            let own = placement(of: action)
+            return (action, own.tier, own.rank, 0, offset)
         }
 
         let sortedBase = ranked
             .sorted { lhs, rhs in
                 if lhs.tier != rhs.tier { return lhs.tier < rhs.tier }
                 if lhs.rank != rhs.rank { return lhs.rank < rhs.rank }
+                if lhs.subRank != rhs.subRank { return lhs.subRank < rhs.subRank }
                 return lhs.stableOffset < rhs.stableOffset
             }
             .map(\.action)

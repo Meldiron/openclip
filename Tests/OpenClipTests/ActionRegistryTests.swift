@@ -25,6 +25,26 @@ struct MockAction: Action {
     }
 }
 
+/// Stands in for the AI Tools launcher: a row that resolves its children out of the catalog
+/// (`chrome.source == .ai`), exactly as `AIToolsAction` does.
+struct MockLauncherAction: Action, SubActionProviding {
+    let id: String
+    let title = "Launcher"
+    let icon = ActionIcon.symbol("sparkles")
+    var chrome: ActionChrome { ActionChrome(source: .builtin, launchesAI: true) }
+
+    @MainActor
+    func isEnabled(for context: ActionContext) -> Bool { true }
+
+    @MainActor
+    func perform(_ context: ActionContext) async throws -> ActionResult { .success }
+
+    @MainActor
+    func subActions(in catalog: [any Action]) -> [any Action] {
+        catalog.filter { ActionIdentity.isAIPreset($0) }
+    }
+}
+
 final class ActionRegistryTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
@@ -258,6 +278,95 @@ final class ActionRegistryTests: XCTestCase {
 
         XCTAssertGreaterThan(ai, lastBuiltin, "AI Tools sits after the last ordered builtin")
         XCTAssertLessThan(ai, firstExt, "AI Tools precedes extensions by default")
+    }
+
+    // MARK: - Sub-actions follow their parent row
+
+    private static func aiPreset(_ id: String) -> MockAction {
+        MockAction(id: id, shouldBeEnabled: true,
+                   chrome: ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .ai))
+    }
+
+    @MainActor
+    private static func palette(_ registry: ActionRegistry) -> [String] {
+        let selection = SelectionContext(text: "test", sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"), cursorPosition: .zero, timestamp: Date(), appPolicy: .default)
+        return registry.searchCatalog(for: ActionContext(selection: selection, modifiers: [])).map(\.id)
+    }
+
+    /// Regression: AI presets carry chrome source `.ai` — neither user-ordered nor builtin — so
+    /// they sank to the very end of the catalog however the user had dragged "AI Tools". The
+    /// palette lists the presets in place of the launcher row, so dragging AI Tools to the top
+    /// must put the AI commands at the top of the palette.
+    @MainActor
+    func testAIPresetsFollowTheLauncherOrderedFirst() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["builtin.aiTools", "builtin.copy", "builtin.search"])
+        let registry = ActionRegistry(settingsStore: store)
+
+        registry.register(builtIns: [
+            MockAction(id: "builtin.copy", shouldBeEnabled: true),
+            MockAction(id: "builtin.search", shouldBeEnabled: true)
+        ])
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+
+        XCTAssertEqual(registry.actions.map(\.id),
+                       ["builtin.aiTools", "ai.preset.proofread", "ai.preset.rewrite", "builtin.copy", "builtin.search"])
+        // What the user actually sees: the palette drops the launcher, so the presets lead.
+        XCTAssertEqual(Self.palette(registry),
+                       ["ai.preset.proofread", "ai.preset.rewrite", "builtin.copy", "builtin.search"])
+    }
+
+    /// The same inheritance in the other direction — AI Tools dragged last keeps its presets last.
+    @MainActor
+    func testAIPresetsFollowTheLauncherOrderedLast() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["builtin.copy", "builtin.search", "builtin.aiTools"])
+        let registry = ActionRegistry(settingsStore: store)
+
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        registry.register(builtIns: [
+            MockAction(id: "builtin.copy", shouldBeEnabled: true),
+            MockAction(id: "builtin.search", shouldBeEnabled: true)
+        ])
+
+        XCTAssertEqual(registry.actions.map(\.id),
+                       ["builtin.copy", "builtin.search", "builtin.aiTools", "ai.preset.proofread"])
+    }
+
+    /// With no user order at all, presets still sit with their launcher among the builtins rather
+    /// than behind every installed extension.
+    @MainActor
+    func testAIPresetsFollowTheLauncherWithNoUserOrder() {
+        let registry = ActionRegistry(settingsStore: MemorySettingsStore())
+        let extChrome = ActionChrome(source: .extensionPkg(packageID: "com.ext.pkg"))
+
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: MockAction(id: "com.ext.pkg.1", shouldBeEnabled: true, chrome: extChrome))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+
+        let ids = registry.actions.map(\.id)
+        XCTAssertEqual(ids.firstIndex(of: "ai.preset.proofread"), ids.firstIndex(of: "builtin.aiTools").map { $0 + 1 })
+        XCTAssertLessThan(ids.firstIndex(of: "ai.preset.proofread")!, ids.firstIndex(of: "com.ext.pkg.1")!)
+    }
+
+    /// Inheritance is a fallback, never an override: a child the user ordered explicitly keeps the
+    /// rank they gave it.
+    @MainActor
+    func testExplicitlyOrderedChildKeepsItsOwnRank() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["ai.preset.rewrite", "builtin.copy", "builtin.aiTools"])
+        let registry = ActionRegistry(settingsStore: store)
+
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        registry.register(action: MockAction(id: "builtin.copy", shouldBeEnabled: true))
+
+        XCTAssertEqual(registry.actions.map(\.id),
+                       ["ai.preset.rewrite", "builtin.copy", "builtin.aiTools", "ai.preset.proofread"])
     }
 
     @MainActor
