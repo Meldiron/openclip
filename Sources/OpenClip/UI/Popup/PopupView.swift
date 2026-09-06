@@ -470,10 +470,18 @@ public struct PopupView: View {
             },
             onRunAI: { actionID in
                 onActionPerformed?(actionID)
-                onExitSearch()
                 if let onRunAI {
+                    // Run first: the controller's AI flow snapshots the selection and dismisses
+                    // the popup itself. Exiting search beforehand dismissed it *for* a palette
+                    // opened straight from the hotkey (`openedDirectlyInSearch` → `hide()`),
+                    // which cleared `currentActionContext` — so the preset never ran and only
+                    // logged "Cannot run AI preset". From the bar the same exit merely returned
+                    // to the bar, which is why AI worked there and nowhere else.
                     onRunAI(actionID)
                 } else {
+                    // Preview/static fallback: no controller flow to dismiss anything, so the
+                    // palette closes itself before streaming into the card.
+                    onExitSearch()
                     guard let preset = aiManager.preset(forActionID: actionID) else { return }
                     runAIPreset(prompt: aiManager.promptForPreset(preset), title: preset.title)
                 }
