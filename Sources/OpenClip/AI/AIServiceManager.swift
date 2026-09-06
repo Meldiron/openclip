@@ -113,25 +113,26 @@ public final class AIServiceManager: ObservableObject {
         return list.isEmpty ? [Self.defaultPresets[0]] : list
     }
 
-    /// Reorders the preset list, moving `id` into the slot `destinationIndex` currently holds
-    /// (drop-on-row semantics: the dragged row takes the target's place and the rest shift).
-    /// The list order *is* the order everywhere — the AI sub-bar, the search palette, and the
-    /// Preferences list all read it — so persisting the new array is the whole feature.
-    public func movePreset(id: String, to destinationIndex: Int) {
-        let reordered = Self.reordering(presets, moving: id, to: destinationIndex)
+    /// Reorders the preset list, moving `id` into `gapIndex` — the gap the insertion bar was
+    /// drawn in, counted between rows (0 = above the first, `count` = below the last), matching
+    /// the drop semantics of the Actions outline. The list order *is* the order everywhere — the
+    /// AI sub-bar, the search palette, and the Preferences list all read it — so persisting the
+    /// new array is the whole feature.
+    public func movePreset(id: String, toGap gapIndex: Int) {
+        let reordered = Self.reordering(presets, moving: id, toGap: gapIndex)
         guard reordered.map(\.id) != presets.map(\.id) else { return }
         presets = reordered
     }
 
     /// Pure reorder used by `movePreset`, split out so the ordering rules are testable without the
-    /// `@AppStorage`-backed singleton. An unknown id or an out-of-range destination leaves the
-    /// list untouched (the destination is clamped, never trapped).
-    public static func reordering(_ presets: [AIActionPreset], moving id: String, to destinationIndex: Int) -> [AIActionPreset] {
+    /// `@AppStorage`-backed singleton. Gap indices are pre-removal (SwiftUI's `move(fromOffsets:
+    /// toOffset:)` convention), so dropping into the gap directly below a row is a no-op rather
+    /// than an off-by-one. An unknown id or an out-of-range gap leaves the list intact — the gap
+    /// is clamped, never trapped on.
+    public static func reordering(_ presets: [AIActionPreset], moving id: String, toGap gapIndex: Int) -> [AIActionPreset] {
         guard let sourceIndex = presets.firstIndex(where: { $0.id == id }) else { return presets }
         var list = presets
-        let moved = list.remove(at: sourceIndex)
-        let clamped = max(0, min(destinationIndex, list.count))
-        list.insert(moved, at: clamped)
+        list.move(fromOffsets: IndexSet(integer: sourceIndex), toOffset: max(0, min(gapIndex, presets.count)))
         return list
     }
 

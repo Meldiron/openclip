@@ -42,31 +42,39 @@ final class AIActionTests: XCTestCase {
         }
     }
 
-    /// Dropping a row onto an earlier one takes that slot; everything below shifts down.
-    func testMovingAPresetUpTakesTheTargetSlot() {
-        let reordered = AIServiceManager.reordering(sample, moving: "explain", to: 0)
+    /// Dropping into the topmost gap (the insertion bar above the first row) puts the preset first.
+    func testDroppingIntoTheTopGapMovesToFirst() {
+        let reordered = AIServiceManager.reordering(sample, moving: "explain", toGap: 0)
         XCTAssertEqual(reordered.map(\.id), ["explain", "proofread", "rewrite", "summarize"])
     }
 
-    /// Moving down lands in the target's slot too (the rows above close the gap first).
-    func testMovingAPresetDownTakesTheTargetSlot() {
-        let reordered = AIServiceManager.reordering(sample, moving: "proofread", to: 2)
+    /// Gap indices are pre-removal, so dropping into the gap *above* "explain" (index 3) leaves
+    /// the moved row directly before it.
+    func testDroppingIntoAMiddleGapLandsInThatGap() {
+        let reordered = AIServiceManager.reordering(sample, moving: "proofread", toGap: 3)
         XCTAssertEqual(reordered.map(\.id), ["rewrite", "summarize", "proofread", "explain"])
     }
 
-    func testMovingToItsOwnIndexIsANoOp() {
-        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "rewrite", to: 1).map(\.id),
-                       sample.map(\.id))
+    /// The gap below the last row appends.
+    func testDroppingIntoTheBottomGapMovesToLast() {
+        let reordered = AIServiceManager.reordering(sample, moving: "proofread", toGap: 4)
+        XCTAssertEqual(reordered.map(\.id), ["rewrite", "summarize", "explain", "proofread"])
     }
 
-    /// Nothing traps: an unknown id or an out-of-range destination is handled, not crashed on.
-    func testUnknownIDAndOutOfRangeDestinationAreSafe() {
-        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "nope", to: 0).map(\.id), sample.map(\.id))
-        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "proofread", to: 99).map(\.id),
+    /// Both gaps touching a row are no-ops for that row — a drag that goes nowhere changes nothing.
+    func testDroppingIntoAnAdjacentGapIsANoOp() {
+        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "rewrite", toGap: 1).map(\.id), sample.map(\.id))
+        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "rewrite", toGap: 2).map(\.id), sample.map(\.id))
+    }
+
+    /// Nothing traps: an unknown id or an out-of-range gap is handled, not crashed on.
+    func testUnknownIDAndOutOfRangeGapAreSafe() {
+        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "nope", toGap: 0).map(\.id), sample.map(\.id))
+        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "proofread", toGap: 99).map(\.id),
                        ["rewrite", "summarize", "explain", "proofread"])
-        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "explain", to: -3).map(\.id),
+        XCTAssertEqual(AIServiceManager.reordering(sample, moving: "explain", toGap: -3).map(\.id),
                        ["explain", "proofread", "rewrite", "summarize"])
-        XCTAssertEqual(AIServiceManager.reordering([], moving: "proofread", to: 0).count, 0)
+        XCTAssertEqual(AIServiceManager.reordering([], moving: "proofread", toGap: 0).count, 0)
     }
 
     /// A preset keeps its content across a move — reordering must not rewrite prompts or state.
@@ -74,9 +82,34 @@ final class AIActionTests: XCTestCase {
         var presets = sample
         presets[3].prompt = "explain it simply"
         presets[3].isEnabled = false
-        let moved = AIServiceManager.reordering(presets, moving: "explain", to: 0)
+        let moved = AIServiceManager.reordering(presets, moving: "explain", toGap: 0)
         XCTAssertEqual(moved.first?.prompt, "explain it simply")
         XCTAssertEqual(moved.first?.isEnabled, false)
+    }
+
+    // MARK: - Insertion bar geometry (Preferences → AI → Actions)
+
+    /// Eight 30pt rows stacked from y=0, as the preset list lays them out.
+    private var rowFrames: [CGRect] {
+        (0..<4).map { CGRect(x: 0, y: CGFloat($0) * 30, width: 400, height: 30) }
+    }
+
+    /// The gap follows the cursor by row midpoints — the rule AppKit's insertion bar uses.
+    func testInsertionGapFollowsRowMidpoints() {
+        XCTAssertEqual(AITab.insertionGap(atY: 0, rowFrames: rowFrames), 0, "above the first row")
+        XCTAssertEqual(AITab.insertionGap(atY: 14, rowFrames: rowFrames), 0, "top half of row 0")
+        XCTAssertEqual(AITab.insertionGap(atY: 16, rowFrames: rowFrames), 1, "bottom half of row 0")
+        XCTAssertEqual(AITab.insertionGap(atY: 46, rowFrames: rowFrames), 2, "bottom half of row 1")
+        XCTAssertEqual(AITab.insertionGap(atY: 400, rowFrames: rowFrames), 4, "below the last row")
+        XCTAssertEqual(AITab.insertionGap(atY: 10, rowFrames: []), 0, "empty list has one gap")
+    }
+
+    /// The bar is drawn in the gap — on a row edge, never across a row.
+    func testInsertionBarSitsOnTheRowEdges() {
+        XCTAssertEqual(AITab.insertionY(forGap: 0, rowFrames: rowFrames), 0)
+        XCTAssertEqual(AITab.insertionY(forGap: 2, rowFrames: rowFrames), 60)
+        XCTAssertEqual(AITab.insertionY(forGap: 4, rowFrames: rowFrames), 120, "trailing gap sits on the last row's bottom edge")
+        XCTAssertNil(AITab.insertionY(forGap: 0, rowFrames: []))
     }
 
     func testAIActionIconForPreset() {
