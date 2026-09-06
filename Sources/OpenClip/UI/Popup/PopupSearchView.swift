@@ -575,11 +575,14 @@ private struct CommandDigitCatcher: NSViewRepresentable {
         var onRow: (@MainActor (Int) -> Bool)?
 
         override func performKeyEquivalent(with event: NSEvent) -> Bool {
-            if let row = PopupSearchView.commandDigitRow(for: event),
-               MainActor.assumeIsolated({ onRow?(row) ?? false }) {
-                return true
+            guard let row = PopupSearchView.commandDigitRow(for: event) else {
+                return super.performKeyEquivalent(with: event)
             }
-            return super.performKeyEquivalent(with: event)
+            // Claimed whether or not a row exists: while the palette is on screen ⌘1…⌘9 are its
+            // own, so ⌘5 in a three-row list quietly does nothing instead of beeping or reaching
+            // the app underneath.
+            MainActor.assumeIsolated { _ = onRow?(row) }
+            return true
         }
     }
 }

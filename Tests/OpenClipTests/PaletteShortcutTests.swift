@@ -146,6 +146,55 @@ final class PaletteShortcutTests: XCTestCase {
                       "⌘1 must be consumed inside the real palette panel — an unhandled key equivalent beeps")
     }
 
+    /// The monitor hook is what actually delivers the shortcut in the running app: AppKit never
+    /// runs its key-equivalent phase for a non-activating panel of an inactive app, so the
+    /// controller runs it by hand and swallows the event.
+    func testControllerConsumesCommandDigitsOnlyWhileThePaletteIsOpen() throws {
+        TestIsolation.reset()
+        defer { TestIsolation.reset() }
+        ActionRegistry.shared.register(action: makeAction("mock.palette.row"))
+
+        let store = MemorySettingsStore()
+        let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))
+        let controller = PopupWindowController(
+            resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard),
+            settingsStore: store
+        )
+        let screenBounds = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+        let selection = SelectionContext(
+            text: "hello world",
+            sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"),
+            cursorPosition: CGPoint(x: screenBounds.midX, y: screenBounds.midY),
+            timestamp: Date(),
+            appPolicy: .default
+        )
+
+        func commandDigit(_ characters: String) throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [.command],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
+                context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                isARepeat: false, keyCode: 18
+            ))
+        }
+
+        // Nothing on screen: the key belongs to whatever the user is working in.
+        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("1")))
+
+        controller.show(for: selection, pasteAvailable: true, initialMode: .search)
+        defer { controller.hide() }
+        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertTrue(controller.consumesPaletteShortcut(try commandDigit("1")),
+                      "the palette must claim ⌘1 so it never reaches the source app or beeps")
+        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("a")),
+                       "only digits — ⌘A stays the source app's")
+
+        controller.hide()
+        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("1")),
+                       "a dismissed palette claims nothing")
+    }
+
     /// A digit past the end of the list does nothing at all — no run, no crash.
     func testCommandDigitBeyondTheResultsDoesNothing() throws {
         let recorder = Recorder()
@@ -174,10 +223,10 @@ final class PaletteShortcutTests: XCTestCase {
             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
             context: nil, characters: "5", charactersIgnoringModifiers: "5", isARepeat: false, keyCode: 23
         ))
-        XCTAssertFalse(panel.performKeyEquivalent(with: event),
-                       "a digit past the results must fall through, not be swallowed")
+        XCTAssertTrue(panel.performKeyEquivalent(with: event),
+                      "while the palette is open ⌘-digits are its own — claimed even with no such row, so the key never beeps or leaks to the app underneath")
         RunLoop.current.run(until: Date().addingTimeInterval(0.3))
 
-        XCTAssertTrue(recorder.performed.isEmpty)
+        XCTAssertTrue(recorder.performed.isEmpty, "but nothing runs")
     }
 }

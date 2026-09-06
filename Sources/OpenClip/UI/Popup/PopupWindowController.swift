@@ -711,7 +711,15 @@ public class PopupWindowController {
         }
         
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .leftMouseUp, .rightMouseUp, .mouseMoved, .scrollWheel, .keyDown]) { [weak self] event in
-            self?.handleEvent(event)
+            guard let self else { return event }
+            // The palette's ⌘1…⌘9 have to be claimed here. AppKit runs its key-equivalent phase
+            // for the *active* application, and the popup panel is a non-activating panel of an
+            // inactive app: keystrokes reach the panel (typing works), but nothing ever asks the
+            // view tree to handle a command-modified key, so it falls off the responder chain and
+            // rings the system bell. Running that phase by hand — and swallowing the event —
+            // gives the palette its shortcut and keeps the ⌘-digit out of the source app.
+            if self.consumesPaletteShortcut(event) { return nil }
+            self.handleEvent(event)
             return event
         }
         
@@ -741,6 +749,18 @@ public class PopupWindowController {
         }
         NotificationCenter.default.removeObserver(self)
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+    }
+
+    /// True when the event is a ⌘-digit the popup's own view tree claims (the search palette's row
+    /// shortcuts). Runs AppKit's key-equivalent phase against the panel explicitly — see the local
+    /// monitor for why it never runs on its own here. Internal for tests.
+    func consumesPaletteShortcut(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              let row = PopupSearchView.commandDigitRow(for: event),
+              let panel, panel.isVisible else { return false }
+        let consumed = panel.performKeyEquivalent(with: event)
+        Log.presentation.debug("palette shortcut: ⌘\(row, privacy: .public) consumed=\(consumed, privacy: .public)")
+        return consumed
     }
 
     func handleEvent(_ event: NSEvent) {
