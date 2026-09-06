@@ -154,6 +154,30 @@ final class MacSelectionMonitorTests: XCTestCase {
         monitor.debounceTask?.cancel()
     }
 
+    /// While the result card is open the monitor must not read a selection at all: selecting a
+    /// word to edit the text under the card used to fire a fresh popup, which replaced the card.
+    /// Closing the card (the gate goes false) resumes the ordinary behaviour.
+    func testResultCardSuppressesSelectionTriggers() {
+        let store = MemorySettingsStore()
+        let monitor = MacSelectionMonitor(settingsStore: store)
+        var cardIsOpen = true
+        monitor.isSuppressed = { cardIsOpen }
+
+        monitor.handleSelectionTrigger(isSelectAll: false)
+        XCTAssertNil(monitor.debounceTask, "keyboard selection must not trigger while the card is open")
+
+        monitor.handleMouseDown(at: CGPoint(x: 100, y: 100))
+        XCTAssertNil(monitor.mouseHoldTask, "hold-to-popup must not arm while the card is open")
+
+        monitor.handleMouseUp(app: NSRunningApplication(), cursor: CGPoint(x: 100, y: 100), clickCount: 2)
+        XCTAssertNil(monitor.debounceTask, "double-click selection must not trigger while the card is open")
+
+        cardIsOpen = false
+        monitor.handleSelectionTrigger(isSelectAll: false)
+        XCTAssertNotNil(monitor.debounceTask, "closing the card must resume selection triggers")
+        monitor.debounceTask?.cancel()
+    }
+
     func testStopCancelsPendingMouseHoldTask() {
         let store = MemorySettingsStore()
         store.set(.mouseHoldDuration, value: 0.3)

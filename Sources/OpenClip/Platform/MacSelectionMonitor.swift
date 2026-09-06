@@ -1,7 +1,9 @@
 // MacSelectionMonitor.swift
 // OpenClip
 //
-// Monitors macOS mouse and keyboard events to detect text selection actions and trigger OpenClip popup presentation.
+// Monitors macOS mouse and keyboard events to detect text selection actions and trigger OpenClip
+// popup presentation. Every trigger passes the `isSuppressed` gate first (wired to the popup's
+// modal result card by AppDelegate), so while that card is open no selection is read at all.
 import AppKit
 import Core
 
@@ -40,6 +42,12 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
         guard let bundleID else { return false }
         return AppFilter.isExcluded(bundleID: bundleID)
     }
+    /// Suppression gate consulted at every trigger (and again after every debounce/hold sleep,
+    /// since the state can change while the timer runs): while it answers true the monitor
+    /// retrieves nothing and delivers nothing, so no selection is even read. The composition root
+    /// wires it to the popup's result card, which is modal — selecting a word to edit the text
+    /// under an open card must not yank the card away. Defaults to never suppressed.
+    internal var isSuppressed: @MainActor () -> Bool = { false }
     /// Policy resolution for the target app; tests fix it to `.default` so real user rules
     /// (~/.openclip/rules.json) cannot alter gating or force copy-based strategies mid-test.
     internal var policyResolver: @MainActor (String?) -> AppPolicyContext = { bundleID in
@@ -176,6 +184,7 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
         mouseHoldTask?.cancel()
 
         guard settingsStore.get(.pauseUntilTimestamp) <= Date().timeIntervalSince1970 else { return }
+        guard !isSuppressed() else { return }
         guard settingsStore.get(.isMouseHoldEnabled) else { return }
         let holdDuration = settingsStore.get(.mouseHoldDuration)
         guard holdDuration > 0 else { return }
@@ -204,6 +213,7 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
             currentPoint = currentMouseLocation()
             guard Self.holdStationary(downPoint: self.mouseDownLocation, pointer: currentPoint, buttonPressed: self.primaryButtonPressed()) else { return }
 
+            guard !self.isSuppressed() else { return }
             guard let app = frontmostAppProvider() else { return }
             if isExcludedBundle(app.bundleIdentifier) {
                 return
@@ -313,8 +323,10 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
         debounceTask?.cancel()
 
         guard settingsStore.get(.pauseUntilTimestamp) <= Date().timeIntervalSince1970 else { return }
+        guard !isSuppressed() else { return }
 
         debounceTask = Task { @MainActor in
+            guard !self.isSuppressed() else { return }
             if let bundleID = app.bundleIdentifier, AppFilter.isExcluded(bundleID: bundleID) {
                 return
             }
@@ -360,6 +372,7 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
     internal func handleSelectionTrigger(isSelectAll: Bool) {
         debounceTask?.cancel()
         guard settingsStore.get(.pauseUntilTimestamp) <= Date().timeIntervalSince1970 else { return }
+        guard !isSuppressed() else { return }
         debounceTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: UInt64(Constants.keyboardSelectionDebounceInterval * 1_000_000_000))
@@ -367,6 +380,7 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
                 return
             }
             if Task.isCancelled { return }
+            guard !self.isSuppressed() else { return }
 
             guard let app = NSWorkspace.shared.frontmostApplication else { return }
 

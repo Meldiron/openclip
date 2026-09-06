@@ -106,6 +106,7 @@
 		502E0EAB60D92A89C1F8957F /* ResultCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C14D435609D5583A39FA164 /* ResultCardView.swift */; };
 		505BCF709F1851C81A35DD64 /* ActionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BBCBD7E4F5F0D1015061E8D /* ActionCoordinatorTests.swift */; };
 		50CDF4FBA60DD7E30580869A /* SubBarStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D2EFD3816A5D71776023F4 /* SubBarStateTests.swift */; };
+		50D063B985561A99C37509F8 /* ResultCardModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 366BBDDE22A116FFDAF1A755 /* ResultCardModalTests.swift */; };
 		5116F40F001337D7A910E311 /* StatusBarControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 831EE1ACBF685660FC4A7E1C /* StatusBarControllerTests.swift */; };
 		5177FD69CB1889103918E06A /* ValidateExpressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18AD4B01A699AB19272C3068 /* ValidateExpressionTests.swift */; };
 		5217746177125684C4C0D562 /* AIConfigureForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0840C0956DCD2948A2E47F53 /* AIConfigureForm.swift */; };
@@ -122,6 +123,7 @@
 		5C944B60B5BAB6D4687431F4 /* AXWebAreaStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87B88E027DEFE5D5E8F50D5E /* AXWebAreaStrategy.swift */; };
 		5DA0AEF4E0DB181460C32C7E /* Core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C75D3BF228023DEA93C5D3D /* Core.swift */; };
 		5DCF177C003BF07A068E9A51 /* BrowserScriptStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B48E991911FC42DA1795980 /* BrowserScriptStrategy.swift */; };
+		5F17CA4DBAD195FC86891D22 /* TextDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D2A86162DC9AE0BED27272 /* TextDiff.swift */; };
 		6110BA1FB01D390A8592ADC9 /* ExtensionsDirectoryWatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691C4AB5E7CCD2F8E5D4A214 /* ExtensionsDirectoryWatcherTests.swift */; };
 		611F612CDB50CBDCE4916F4E /* RuleEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C43223F2E4E777CC9F7673 /* RuleEngineTests.swift */; };
 		62694BC577DF6210819143D5 /* URLTemplateAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2CB1948C425181EE3DCFAAA /* URLTemplateAction.swift */; };
@@ -323,6 +325,7 @@
 		EE047575D4BBDD2F0D88A15C /* OpenClipModuleLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC570E95AD00AF13279BF5F1 /* OpenClipModuleLoader.swift */; };
 		EF3BE1F10E35A392B5F686F8 /* RecommendedExtensionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EE6E52A608F70478CA1BB44 /* RecommendedExtensionsView.swift */; };
 		F0469675D9268D8B2FF96930 /* PopupPageLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DDE8FADF17FFAAA734E652D /* PopupPageLayout.swift */; };
+		F1F3954D6FA609E1F9A1D41F /* TextDiffTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F550B3391CB67E294AE13EC /* TextDiffTests.swift */; };
 		F3605465C595AC6C4AD817D6 /* SettingKey+MenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FD5FB4055A0801CFE23340 /* SettingKey+MenuBar.swift */; };
 		F3838DAB280C70F3FF8196FF /* OpenClipJSHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B2196A93CE938E3BCD2D73F /* OpenClipJSHost.swift */; };
 		F499E888422C2452E64E2F06 /* ExtensionsStoreViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A9596443229B1173DAB2434 /* ExtensionsStoreViewTests.swift */; };
@@ -455,6 +458,7 @@
 		34FD5FB4055A0801CFE23340 /* SettingKey+MenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingKey+MenuBar.swift"; sourceTree = "<group>"; };
 		3573C5F0E0C00C1A562BBBDC /* SelectionRetrievalMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionRetrievalMode.swift; sourceTree = "<group>"; };
 		36016F74951C9B2E0CAA6894 /* AboutTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutTabView.swift; sourceTree = "<group>"; };
+		366BBDDE22A116FFDAF1A755 /* ResultCardModalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultCardModalTests.swift; sourceTree = "<group>"; };
 		3675FDD7BC06CF3B3CBDA003 /* DynamicActionConfigView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicActionConfigView.swift; sourceTree = "<group>"; };
 		37C5B4BFF2D115C64916D6E9 /* CustomActionManifestWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomActionManifestWriter.swift; sourceTree = "<group>"; };
 		382F45A3CA8BFDC01E3132BD /* LogCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogCoreTests.swift; sourceTree = "<group>"; };
@@ -467,6 +471,7 @@
 		3DDE8FADF17FFAAA734E652D /* PopupPageLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupPageLayout.swift; sourceTree = "<group>"; };
 		3E47D4C3D096CE979274DCDA /* BuiltinRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinRegistryTests.swift; sourceTree = "<group>"; };
 		3F2731480550C2912B357B1C /* PasteAvailabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteAvailabilityTests.swift; sourceTree = "<group>"; };
+		3F550B3391CB67E294AE13EC /* TextDiffTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextDiffTests.swift; sourceTree = "<group>"; };
 		40068DD0346E93060C2DE55A /* PasteboardCopyEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteboardCopyEngineTests.swift; sourceTree = "<group>"; };
 		408D34C4B02A270BFAC45B52 /* CoachMarkControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachMarkControllerTests.swift; sourceTree = "<group>"; };
 		40BC7280676281FD11450DF2 /* ActionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionFactory.swift; sourceTree = "<group>"; };
@@ -523,6 +528,7 @@
 		7065CFC746479DF29BD1525F /* ExtensionTrustStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionTrustStateTests.swift; sourceTree = "<group>"; };
 		71D66B03CE90BB5DD34187BD /* KeyPressSpec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyPressSpec.swift; sourceTree = "<group>"; };
 		72319E0C350B35EBFCFFB9F4 /* PermissionRecoveryWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionRecoveryWindowController.swift; sourceTree = "<group>"; };
+		72D2A86162DC9AE0BED27272 /* TextDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextDiff.swift; sourceTree = "<group>"; };
 		74011E62AB2E26EB03C81D18 /* ExtensionPackageHashResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionPackageHashResolverTests.swift; sourceTree = "<group>"; };
 		74377A23CADC86774742A0BD /* InstalledAppsScannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledAppsScannerTests.swift; sourceTree = "<group>"; };
 		750ADA88A976EEF10B2481E2 /* AppFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFilter.swift; sourceTree = "<group>"; };
@@ -766,6 +772,7 @@
 		0BBE48F575F811D54A447525 /* Utils */ = {
 			isa = PBXGroup;
 			children = (
+				72D2A86162DC9AE0BED27272 /* TextDiff.swift */,
 				AE8874EAC1123657CDB78D06 /* TextPlaceholderEngine.swift */,
 			);
 			path = Utils;
@@ -1307,6 +1314,7 @@
 				B7057F1EDC97680EC5B78A83 /* PopupSearchScopeTests.swift */,
 				D17261567A410E583636E381 /* PreferenceTabTests.swift */,
 				4E0824A74806623A75D29570 /* RemoteExtensionInstallerTests.swift */,
+				366BBDDE22A116FFDAF1A755 /* ResultCardModalTests.swift */,
 				92591CBEAFDE51E7D4630274 /* RevealInFinderActionTests.swift */,
 				1E8A40D29BDA7A80DFF5AF4E /* RichPasteboardPayloadTests.swift */,
 				E1A3B31A9407EA4D8E0EBF6E /* RotatingFileLogSinkTests.swift */,
@@ -1324,6 +1332,7 @@
 				CA3C9A8D346CA4461E305F3C /* SubBarPanelControllerTests.swift */,
 				F6D2EFD3816A5D71776023F4 /* SubBarStateTests.swift */,
 				2FB27AADC6E8AFED7FA86F02 /* TestIsolation.swift */,
+				3F550B3391CB67E294AE13EC /* TextDiffTests.swift */,
 				95F4335DD4C3C026D8A6AEBA /* TextPlaceholderEngineTests.swift */,
 				49648502F040834635BBD8ED /* TextRetrieverTests.swift */,
 				25F5B1000D24EE8852A91066 /* TextSanitizerTests.swift */,
@@ -1563,6 +1572,7 @@
 				BF71DCDEFFB5F2E6CE6D9B20 /* PopupSearchScopeTests.swift in Sources */,
 				CF13A312B971DB7D0934DA09 /* PreferenceTabTests.swift in Sources */,
 				2E0CE79B92BCBAD1F615A98E /* RemoteExtensionInstallerTests.swift in Sources */,
+				50D063B985561A99C37509F8 /* ResultCardModalTests.swift in Sources */,
 				470BB95C626E3041E74CA19D /* RevealInFinderActionTests.swift in Sources */,
 				C4916C62F89BF6D9A045286F /* RichPasteboardPayloadTests.swift in Sources */,
 				87B7B3D8AAA1E4C9D01750FE /* RotatingFileLogSinkTests.swift in Sources */,
@@ -1580,6 +1590,7 @@
 				077BDE4E31B68A718C5E5FCF /* SubBarPanelControllerTests.swift in Sources */,
 				50CDF4FBA60DD7E30580869A /* SubBarStateTests.swift in Sources */,
 				2B3E3EB0BC1A9BA0919C017E /* TestIsolation.swift in Sources */,
+				F1F3954D6FA609E1F9A1D41F /* TextDiffTests.swift in Sources */,
 				9A7F163119972B733595F05C /* TextPlaceholderEngineTests.swift in Sources */,
 				9495A826AD2E0BB4ED448280 /* TextRetrieverTests.swift in Sources */,
 				2BA13E2C55DB83FBD4B84666 /* TextSanitizerTests.swift in Sources */,
@@ -1678,6 +1689,7 @@
 				85585652F398636A85EED43F /* ShellProcessRunner.swift in Sources */,
 				92345C4B7E3325E66D6776D2 /* StatusFeedback.swift in Sources */,
 				3D5FA5DD6B43DAB73D609A56 /* SubAction.swift in Sources */,
+				5F17CA4DBAD195FC86891D22 /* TextDiff.swift in Sources */,
 				1FA8CFA55755A2903AE4D934 /* TextPlaceholderEngine.swift in Sources */,
 				76E559C066D1B00D899DB613 /* TextRetrieving.swift in Sources */,
 				14A6CC52EA6A21C758EA932D /* TextSanitizer.swift in Sources */,

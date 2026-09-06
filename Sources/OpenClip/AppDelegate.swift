@@ -116,6 +116,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         macMonitor.preparePasteProbe = { [weak self] app, policy in
             self?.popupController?.preparePasteProbe(for: app, policy: policy)
         }
+        // The result card is modal: while it is up, selecting text (to edit it under the card,
+        // say) must not open the action bar over it. Closing the card resumes selection triggers.
+        macMonitor.isSuppressed = { [weak self] in
+            self?.popupController?.cardIsModal ?? false
+        }
         selectionMonitor = macMonitor
         guard NSClassFromString("XCTestCase") == nil else { return }
 

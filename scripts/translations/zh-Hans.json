@@ -392,7 +392,6 @@
   "OpenClip could not remove extension: %@": "OpenClip 无法移除扩展：%@",
   "Invalid download URL.": "下载地址无效。",
   "Exit search": "退出搜索",
-  "Back to actions (Esc)": "返回动作（Esc）",
   "Paste the response over the selection (⏎)": "将回复粘贴到选中内容上（⏎）",
   "Open AI settings": "打开 AI 设置",
   "Fetch available models live from API": "从 API 实时获取可用模型",
@@ -426,5 +425,11 @@
   "Pause in %@": "在 %@ 中暂停",
   "Paused in %@": "已在 %@ 中暂停",
   "Pause in App": "在应用中暂停",
-  "Resume OpenClip (%lldm left)": "恢复 OpenClip (剩余 %lld 分钟)"
+  "Resume OpenClip (%lldm left)": "恢复 OpenClip (剩余 %lld 分钟)",
+  "Show what changed (⌘D)": "显示更改内容 (⌘D)",
+  "Show the plain result (⌘D)": "显示纯文本结果 (⌘D)",
+  "Toggle change highlighting": "切换更改高亮",
+  "Drag to move": "拖动以移动",
+  "Close the card (⎋)": "关闭卡片 (⎋)",
+  "Close the result card": "关闭结果卡片"
 }

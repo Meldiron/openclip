@@ -392,7 +392,6 @@
   "OpenClip could not remove extension: %@": "OpenClip n’a pas pu supprimer l’extension : %@",
   "Invalid download URL.": "URL de téléchargement non valide.",
   "Exit search": "Quitter la recherche",
-  "Back to actions (Esc)": "Retour aux actions (Échap)",
   "Paste the response over the selection (⏎)": "Coller la réponse sur la sélection (⏎)",
   "Open AI settings": "Ouvrir les réglages d’IA",
   "Fetch available models live from API": "Récupérer les modèles disponibles en direct depuis l’API",
@@ -426,5 +425,11 @@
   "Pause in %@": "Mettre en pause dans %@",
   "Paused in %@": "En pause dans %@",
   "Pause in App": "Mettre en pause dans l'application",
-  "Resume OpenClip (%lldm left)": "Reprendre OpenClip (%lld min restantes)"
+  "Resume OpenClip (%lldm left)": "Reprendre OpenClip (%lld min restantes)",
+  "Show what changed (⌘D)": "Afficher les modifications (⌘D)",
+  "Show the plain result (⌘D)": "Afficher le résultat simple (⌘D)",
+  "Toggle change highlighting": "Activer ou désactiver la mise en évidence des modifications",
+  "Drag to move": "Faire glisser pour déplacer",
+  "Close the card (⎋)": "Fermer la carte (⎋)",
+  "Close the result card": "Fermer la carte de résultat"
 }
