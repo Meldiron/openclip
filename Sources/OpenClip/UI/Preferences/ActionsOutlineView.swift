@@ -73,6 +73,43 @@ final class OutlineNode: NSObject {
         guard let other = object as? OutlineNode else { return false }
         return id == other.id
     }
+
+    func signature(using customization: ActionCustomizationManager) -> String {
+        var sig = id + ":"
+        switch kind {
+        case .customGroup(let def, let action):
+            let p = customization.presented(action, surface: .table)
+            sig += "cg:\(def.title):\(def.iconName):\(def.memberActionIDs.joined(separator: ",")):\(p.title):\(String(describing: p.icon))"
+        case .extensionGroup(let action):
+            let p = customization.presented(action, surface: .table)
+            sig += "eg:\(p.title):\(String(describing: p.icon))"
+        case .standaloneAction(let action):
+            let p = customization.presented(action, surface: .table)
+            sig += "sa:\(p.title):\(String(describing: p.icon))"
+        case .packageHeader(let pkgID, let title, let gatedReason):
+            sig += "ph:\(pkgID):\(title):\(String(describing: gatedReason))"
+        case .groupMember(let action, let parentGroupID):
+            let p = customization.presented(action, surface: .table)
+            sig += "gm:\(parentGroupID):\(p.title):\(String(describing: p.icon))"
+        case .extensionSubAction(let action, let parentGroupID):
+            let p = customization.presented(action, surface: .table)
+            sig += "es:\(parentGroupID):\(p.title):\(String(describing: p.icon))"
+        }
+        if !children.isEmpty {
+            sig += "[" + children.map { $0.signature(using: customization) }.joined(separator: ";") + "]"
+        }
+        return sig
+    }
+
+    static func treesEqual(_ a: [OutlineNode], _ b: [OutlineNode], using customization: ActionCustomizationManager) -> Bool {
+        guard a.count == b.count else { return false }
+        for i in 0..<a.count {
+            if a[i].signature(using: customization) != b[i].signature(using: customization) {
+                return false
+            }
+        }
+        return true
+    }
 }
 
 // MARK: - Outline Cell View
@@ -218,7 +255,8 @@ struct ActionsOutlineView: NSViewRepresentable {
         outlineView.setDraggingSourceOperationMask(.move, forLocal: true)
 
         context.coordinator.outlineView = outlineView
-        context.coordinator.rebuildTree()
+        _ = context.coordinator.rebuildTree()
+        outlineView.reloadData()
 
         scrollView.documentView = outlineView
         return scrollView
@@ -245,7 +283,8 @@ final class ActionsOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         super.init()
     }
 
-    func rebuildTree() {
+    @discardableResult
+    func rebuildTree() -> Bool {
         let actions = parent.coordinator.actions
         let groupDefs = parent.coordinator.actionGroupDefs
 
@@ -334,17 +373,23 @@ final class ActionsOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             }
         }
 
-        self.rootNodes = newRoots
+        let changed = !OutlineNode.treesEqual(newRoots, self.rootNodes, using: parent.customizationManager)
+        if changed {
+            self.rootNodes = newRoots
+        }
+        return changed
     }
 
     func syncWithParent() {
         guard let outlineView else { return }
-        rebuildTree()
-        outlineView.reloadData()
+        let changed = rebuildTree()
+        if changed {
+            outlineView.reloadData()
 
-        // Restore expansion state
-        for node in rootNodes where expandedNodeIDs.contains(node.id) {
-            outlineView.expandItem(node)
+            // Restore expansion state
+            for node in rootNodes where expandedNodeIDs.contains(node.id) {
+                outlineView.expandItem(node)
+            }
         }
 
         // Sync selection from parent

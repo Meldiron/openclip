@@ -44,20 +44,24 @@ public final class PopupModeStore: ObservableObject {
 /// The payload of the native result card: the action's response text, whether it is an
 /// error message (drives the card's styling), the producing action's title and icon, and
 /// streaming state. `icon` is nil for AI streaming deliveries, which fall back to the
-/// card's sparkles glyph.
+/// card's sparkles glyph. `original` is the text the action was run on (the selection), kept so
+/// the card can show a character-level diff of what the action changed; nil when there is
+/// nothing to compare against.
 public struct ResultCardPayload: Sendable, Equatable {
     public let text: String
     public let isError: Bool
     public let title: String
     public let icon: ActionIcon?
     public let isStreaming: Bool
+    public let original: String?
 
-    public init(text: String, isError: Bool, title: String = String(localized: "AI Tools"), icon: ActionIcon? = nil, isStreaming: Bool = false) {
+    public init(text: String, isError: Bool, title: String = String(localized: "AI Tools"), icon: ActionIcon? = nil, isStreaming: Bool = false, original: String? = nil) {
         self.text = text
         self.isError = isError
         self.title = title
         self.icon = icon
         self.isStreaming = isStreaming
+        self.original = original
     }
 }
 

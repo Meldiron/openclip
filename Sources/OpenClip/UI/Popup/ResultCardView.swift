@@ -2,14 +2,22 @@
 // OpenClip
 //
 // The native result card rendered in content mode in place of the bar: a header (back chevron,
-// producing action's icon or sparkles + title), a scrollable response body (error-styled when the
-// action failed), and a Copy/Paste footer (hidden on error; Paste hidden when the target app can't
+// producing action's icon or sparkles + title, diff toggle), a scrollable response body
+// (error-styled when the action failed), and a footer carrying Close (⎋) plus Copy/Paste (both
+// absent on an error card, which offers only Close; Paste also hidden when the target app can't
 // paste). Any action whose resolved outcome is text renders here, not just AI presets.
 // Paste/Copy are explicit user requests routed through performCardEffect, so an explicit Paste
 // always pastes, and both dismiss the popup (Copy like Paste). The panel is key while the card
-// shows (Task 14) and the card owns the keys (SwiftUI .onKeyPress): Esc collapses, Return pastes,
-// Shift+Return copies — the controller-level key monitor stays observation-only in content mode.
+// shows (Task 14) and the card owns the keys (SwiftUI .onKeyPress): Esc dismisses the card,
+// Return pastes, Shift+Return copies, ⌘D toggles the diff — the controller-level key monitor
+// stays observation-only in content mode.
+// The card is modal-ish by design: it stays up until Copy, Paste or Esc (see
+// PopupWindowController.handleEvent), and its header doubles as a drag handle (a SwiftUI
+// DragGesture reported to PopupWindowController.handleCardDrag) so it can be moved out of the way
+// of the text underneath.
 import SwiftUI
+import AppKit
+import Core
 
 // MARK: - Effective Theme Injection
 
@@ -26,6 +34,23 @@ extension EnvironmentValues {
     }
 }
 
+// MARK: - Card Drag
+
+/// Phases of a drag on the card's header handle. The card only reports them; the controller owns
+/// the panel and does the moving.
+///
+/// AppKit dragging is not an option here: the panel is borderless (no title bar),
+/// `isMovableByWindowBackground` never fires because the SwiftUI hosting view consumes the press,
+/// and an `NSViewRepresentable` handle never receives `mouseDown` either — `NSHostingView` answers
+/// `hitTest` with itself for the whole card and dispatches through SwiftUI's own gesture system.
+/// So the handle is a SwiftUI `DragGesture`, and the move is computed from the absolute cursor
+/// position (never the gesture's translation, which would fight the window moving under it).
+public enum ResultCardDragPhase: Sendable {
+    case began
+    case changed
+    case ended
+}
+
 // MARK: - Result Card
 
 public struct ResultCardView: View {
@@ -33,53 +58,96 @@ public struct ResultCardView: View {
     /// Paste availability of the target app (from the AX probe); `false` hides the Paste button.
     public let canPaste: Bool?
     public let onExit: @MainActor () -> Void
+    /// Esc: closes the card outright (the popup goes away) rather than falling back to the bar.
+    public let onDismiss: @MainActor () -> Void
     public let onPaste: @MainActor () -> Void
     public let onCopy: @MainActor () -> Void
+    /// Reports a drag of the header handle so the owner can move the panel.
+    public let onDrag: @MainActor (ResultCardDragPhase) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.popupEffectiveTheme) private var effectiveTheme
     @FocusState private var isCardFocused: Bool
     @State private var isChevronHovered = false
+    @State private var isCloseHovered = false
+    @State private var isDiffHovered = false
+    @State private var isCopyHovered = false
+    @State private var isPasteHovered = false
+    @State private var isDismissHovered = false
+    /// The diff of `payload.original` → `payload.text`, recomputed only when the payload settles
+    /// (never per body evaluation, and never mid-stream on a half-written response).
+    @State private var diffSegments: [TextDiffSegment] = []
+    @State private var showsDiff = false
+    /// Set once the user works the toggle, so a later payload update can't override their choice.
+    @State private var didChooseDiffMode = false
+    /// True between the drag gesture crossing its threshold and its end, so `.began` is reported
+    /// exactly once per drag.
+    @State private var isDraggingCard = false
 
     public init(
         payload: ResultCardPayload,
         canPaste: Bool? = nil,
         onExit: @escaping @MainActor () -> Void,
+        onDismiss: (@MainActor () -> Void)? = nil,
         onPaste: @escaping @MainActor () -> Void,
-        onCopy: @escaping @MainActor () -> Void
+        onCopy: @escaping @MainActor () -> Void,
+        onDrag: @escaping @MainActor (ResultCardDragPhase) -> Void = { _ in }
     ) {
         self.payload = payload
         self.canPaste = canPaste
         self.onExit = onExit
+        self.onDismiss = onDismiss ?? onExit
         self.onPaste = onPaste
         self.onCopy = onCopy
+        self.onDrag = onDrag
     }
 
     public var body: some View {
         cardChrome {
-            VStack(spacing: 0) {
-                header
+            ZStack(alignment: .top) {
                 bodyScroll
-                if !payload.isError {
-                    footer
-                }
+
+                topBlurOverlay
+                    .frame(maxWidth: .infinity, alignment: .top)
+
+                bottomBlurOverlay
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+
+                header
+                    .frame(maxWidth: .infinity, alignment: .top)
+
+                footer
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .frame(width: dynamicCardWidth)
+        .frame(width: dynamicCardWidth, height: dynamicCardHeight)
         .focusable()
         .focusEffectDisabled()
         .focused($isCardFocused)
         .onAppear {
             isCardFocused = true
+            refreshDiff()
+        }
+        .onChange(of: payload) { _, _ in
+            refreshDiff()
         }
         .onKeyPress(.escape) {
-            onExit()
+            onDismiss()
+            return .handled
+        }
+        .onKeyPress(keys: ["d"], phases: .down) { press in
+            guard press.modifiers.contains(.command), hasDiff else { return .ignored }
+            toggleDiff()
+            return .handled
+        }
+        .onKeyPress(keys: ["c"], phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            onCopy()
             return .handled
         }
         .onKeyPress(.return, phases: .down) { press in
-            // Return pastes (an explicit request, so it always pastes); Shift+Return copies.
-            // When the target can't paste the button is hidden, so Return falls back to copy.
-            if press.modifiers.contains(.shift) || canPaste == false {
+            // Return pastes if paste is available, else copies; Shift+Return always copies.
+            if canPaste == false || press.modifiers.contains(.shift) {
                 onCopy()
             } else {
                 onPaste()
@@ -88,21 +156,89 @@ public struct ResultCardView: View {
         }
     }
 
-    // MARK: Chrome
+    // MARK: Diff
+
+    private var hasDiff: Bool { !diffSegments.isEmpty }
+
+    /// Recomputes the diff for the current payload and picks the default view for it: a light edit
+    /// (proofread, tone change) opens on the diff, a wholesale rewrite (translate, summarize)
+    /// opens on the plain result — the toggle is always there either way. A response still
+    /// streaming is never diffed: the comparison would be against a half-written text.
+    private func refreshDiff() {
+        guard !payload.isError, !payload.isStreaming,
+              let original = payload.original else {
+            diffSegments = []
+            showsDiff = false
+            return
+        }
+        let source = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        let result = payload.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard TextDiff.isMeaningfulEdit(from: source, to: result) else {
+            diffSegments = []
+            showsDiff = false
+            return
+        }
+        let segments = TextDiff.segments(from: source, to: result)
+        diffSegments = segments
+        if !didChooseDiffMode {
+            showsDiff = true
+        }
+    }
+
+    private func toggleDiff() {
+        didChooseDiffMode = true
+        showsDiff.toggle()
+    }
+
+    private var insertionColor: Color {
+        colorScheme == .dark ? Color(red: 0.35, green: 0.82, blue: 0.50) : Color(red: 0.11, green: 0.53, blue: 0.24)
+    }
+
+    private var deletionColor: Color {
+        colorScheme == .dark ? Color(red: 0.98, green: 0.47, blue: 0.47) : Color(red: 0.74, green: 0.15, blue: 0.15)
+    }
+
+    /// The diff as one attributed run stream: removed characters in red with a strikethrough,
+    /// added characters in green, everything else in the body's normal colour. Both get a tinted
+    /// background so a changed space or newline is still visible.
+    private var diffAttributedText: AttributedString {
+        var output = AttributedString()
+        for segment in diffSegments {
+            var run = AttributedString(segment.text)
+            switch segment.kind {
+            case .equal:
+                run.foregroundColor = Color.primary.opacity(0.85)
+            case .insert:
+                run.foregroundColor = insertionColor
+                run.backgroundColor = insertionColor.opacity(colorScheme == .dark ? 0.20 : 0.14)
+            case .delete:
+                run.foregroundColor = deletionColor
+                run.backgroundColor = deletionColor.opacity(colorScheme == .dark ? 0.20 : 0.12)
+                run.strikethroughStyle = Text.LineStyle.single
+            }
+            output.append(run)
+        }
+        return output
+    }
+
+    // MARK: - Chrome
+
+    private static let cardCornerRadius: CGFloat = 14.0
+    private static let buttonCornerRadius: CGFloat = 8.0
 
     private func cardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: PopupMetrics.popupCornerRadius, style: .continuous)
-        let classicBorderColor: Color = colorScheme == .dark ? Color.white.opacity(0.22) : Color.black.opacity(0.20)
+        let shape = RoundedRectangle(cornerRadius: Self.cardCornerRadius, style: .continuous)
+        let classicBorderColor: Color = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
         return content()
             .background(
                 Group {
                     if effectiveTheme == "glass" {
-                        LayeredGlassBackground(cornerRadius: PopupMetrics.popupCornerRadius, colorScheme: colorScheme)
+                        LayeredGlassBackground(cornerRadius: Self.cardCornerRadius, colorScheme: colorScheme)
                     } else {
                         shape.fill(
-                            Color(red: colorScheme == .dark ? 0.20 : 0.91,
-                                  green: colorScheme == .dark ? 0.20 : 0.91,
-                                  blue: colorScheme == .dark ? 0.22 : 0.93)
+                            Color(red: colorScheme == .dark ? 0.18 : 0.94,
+                                  green: colorScheme == .dark ? 0.18 : 0.94,
+                                  blue: colorScheme == .dark ? 0.20 : 0.96)
                         )
                     }
                 }
@@ -111,16 +247,16 @@ public struct ResultCardView: View {
             .overlay(
                 Group {
                     if effectiveTheme == "glass" {
-                        LayeredGlassBorder(cornerRadius: PopupMetrics.popupCornerRadius, colorScheme: colorScheme)
+                        LayeredGlassBorder(cornerRadius: Self.cardCornerRadius, colorScheme: colorScheme)
                     } else {
                         shape.stroke(classicBorderColor, lineWidth: 1.0)
                     }
                 }
             )
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.32 : 0.16), radius: 6, x: 0, y: 3)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.14), radius: 10, x: 0, y: 4)
     }
 
-    // MARK: Header
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -129,128 +265,313 @@ public struct ResultCardView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(isChevronHovered ? .accentColor : PopupThemeModel.restForeground(for: effectiveTheme).opacity(0.75))
-                    .frame(width: 24, height: 24)
+                    .foregroundColor(isChevronHovered ? .primary : PopupThemeModel.restForeground(for: effectiveTheme).opacity(0.65))
+                    .frame(width: 22, height: 22)
                     .background(
-                        isChevronHovered ? Color.accentColor.opacity(0.12) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        isChevronHovered ? Color.primary.opacity(0.08) : Color.clear,
+                        in: Circle()
                     )
-                    .contentShape(Rectangle())
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .help("Back to actions (Esc)")
+            .help("Back to actions")
             .accessibilityLabel("Back to actions")
             .onHover { isChevronHovered = $0 }
 
-            if let icon = payload.icon {
-                // The producing action's own icon (bar-resolution: honors user overrides),
-                // so extension results keep their identity in the card.
-                ActionIconView(icon: icon, size: 13)
-                    .foregroundColor(.accentColor)
-            } else {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.accentColor)
+            // Everything between the buttons is the drag handle, so the card can be pulled off the
+            // text it covers. The handle sits *behind* this row, clear of the two buttons.
+            HStack(spacing: 7) {
+                if let icon = payload.icon {
+                    // The producing action's own icon (bar-resolution: honors user overrides),
+                    // so extension results keep their identity in the card.
+                    ActionIconView(icon: icon, size: 13)
+                        .foregroundColor(.accentColor)
+                } else {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.accentColor)
+                }
+                Text(payload.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(PopupThemeModel.restForeground(for: effectiveTheme))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
             }
-            Text(payload.title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(PopupThemeModel.restForeground(for: effectiveTheme))
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(headerDragGesture)
+            .help("Drag to move")
+
+            if hasDiff {
+                diffToggle
+            }
+
+            closeButton
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            Rectangle().fill(PopupThemeModel.dividerColor(for: effectiveTheme))
-                .frame(height: 0.6),
-            alignment: .bottom
-        )
+        .padding(.horizontal, 8)
+        .frame(height: 32)
+        .background(headerCapsuleBackground)
+        .padding(.horizontal, 12)
+        .padding(.top, 14)
     }
 
-    // MARK: Dynamic Dimensions
+    private var headerCapsuleBackground: some View {
+        let capsule = Capsule(style: .continuous)
+        let strokeColor = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.10)
+        let tintOpacity: Double = colorScheme == .dark ? 0.08 : 0.05
+        let shadow1 = Color.black.opacity(colorScheme == .dark ? 0.26 : 0.14)
+        let shadow2 = Color.black.opacity(colorScheme == .dark ? 0.12 : 0.06)
+
+        return capsule
+            .fill(.ultraThinMaterial)
+            .overlay(capsule.fill(Color.primary.opacity(tintOpacity)))
+            .overlay(capsule.stroke(strokeColor, lineWidth: 0.5))
+            .shadow(color: shadow1, radius: 6, x: 0, y: 2.5)
+            .shadow(color: shadow2, radius: 1, x: 0, y: 0.5)
+    }
+
+    // MARK: - Blur Overlays
+
+    private var cardBackgroundColor: Color {
+        if effectiveTheme == "glass" {
+            return colorScheme == .dark ? Color.black.opacity(0.35) : Color.white.opacity(0.40)
+        } else {
+            return Color(red: colorScheme == .dark ? 0.18 : 0.94,
+                         green: colorScheme == .dark ? 0.18 : 0.94,
+                         blue: colorScheme == .dark ? 0.20 : 0.96)
+        }
+    }
+
+    private var topBlurOverlay: some View {
+        let bg = cardBackgroundColor
+        return LinearGradient(
+            stops: [
+                .init(color: bg, location: 0.0),
+                .init(color: bg.opacity(0.85), location: 0.55),
+                .init(color: bg.opacity(0.0), location: 1.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 52)
+        .allowsHitTesting(false)
+    }
+
+    private var bottomBlurOverlay: some View {
+        let bg = cardBackgroundColor
+        return LinearGradient(
+            stops: [
+                .init(color: bg.opacity(0.0), location: 0.0),
+                .init(color: bg.opacity(0.85), location: 0.45),
+                .init(color: bg, location: 1.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: 44)
+        .allowsHitTesting(false)
+    }
+
+    private var closeButton: some View {
+        Button {
+            onDismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundColor(isCloseHovered ? .primary : PopupThemeModel.restForeground(for: effectiveTheme).opacity(0.65))
+                .frame(width: 22, height: 22)
+                .background(
+                    isCloseHovered ? Color.primary.opacity(0.08) : Color.clear,
+                    in: Circle()
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(String(localized: "Close (⎋)"))
+        .accessibilityLabel(String(localized: "Close result card"))
+        .onHover { isCloseHovered = $0 }
+    }
+
+    /// A small threshold keeps a plain click on the header (which makes the panel key again after
+    /// the user worked in another app) from being read as a drag.
+    private var headerDragGesture: some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { _ in
+                if !isDraggingCard {
+                    isDraggingCard = true
+                    onDrag(.began)
+                }
+                onDrag(.changed)
+            }
+            .onEnded { _ in
+                guard isDraggingCard else { return }
+                isDraggingCard = false
+                onDrag(.ended)
+            }
+    }
+
+    private var diffToggle: some View {
+        Button {
+            toggleDiff()
+        } label: {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(showsDiff ? .accentColor : PopupThemeModel.restForeground(for: effectiveTheme).opacity(isDiffHovered ? 0.9 : 0.6))
+                .frame(width: 22, height: 22)
+                .background(
+                    showsDiff ? Color.accentColor.opacity(0.14) : (isDiffHovered ? Color.primary.opacity(0.08) : Color.clear),
+                    in: Circle()
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(showsDiff ? String(localized: "Show the plain result (⌘D)") : String(localized: "Show what changed (⌘D)"))
+        .accessibilityLabel(String(localized: "Toggle change highlighting"))
+        .onHover { isDiffHovered = $0 }
+    }
+
+    // MARK: - Dynamic Dimensions
+
+    /// What the body actually renders — the diff is longer than the result (it keeps the removed
+    /// characters), so the card must be measured against it, not against `payload.text`.
+    private var measuredText: String {
+        if showsDiff, hasDiff {
+            return diffSegments.map(\.text).joined()
+        }
+        return payload.text
+    }
 
     private var dynamicCardWidth: CGFloat {
-        let trimmed = payload.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lines = trimmed.components(separatedBy: .newlines)
-        let maxLineLength = lines.map(\.count).max() ?? trimmed.count
-        let charCount = trimmed.count
-
-        if maxLineLength <= 18 && charCount <= 30 {
-            return PopupMetrics.aiCardMinWidth // 220
-        } else if maxLineLength <= 35 && charCount <= 80 {
-            return 260
-        } else {
-            return PopupMetrics.aiCardIdealWidth // 300
-        }
+        PopupMetrics.aiCardIdealWidth
     }
 
-    private var dynamicBodyHeight: CGFloat {
-        let trimmed = payload.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lines = trimmed.components(separatedBy: .newlines)
-        let lineCount = lines.count
-        let charCount = trimmed.count
+    private static let topInset: CGFloat = 52.0
+    private static let bottomInset: CGFloat = 42.0
 
-        if lineCount <= 1 && charCount <= 30 {
-            return 72
-        } else if lineCount <= 1 && charCount <= 60 {
-            return 88
-        } else if lineCount <= 2 && charCount <= 90 {
-            return 104
-        } else if lineCount <= 3 && charCount <= 140 {
-            return 124
-        } else if lineCount <= 4 && charCount <= 180 {
-            return 144
-        } else {
-            return PopupMetrics.aiCardBodyHeight // 160 max height for scrolling
-        }
+    private var naturalContentHeight: CGFloat {
+        let textToMeasure = measuredText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !textToMeasure.isEmpty else { return PopupMetrics.aiCardMinHeight }
+        let availableWidth = PopupMetrics.aiCardIdealWidth - 32
+        let font = NSFont.systemFont(ofSize: 13.5, weight: .regular)
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = 3.5
+        let rect = (textToMeasure as NSString).boundingRect(
+            with: CGSize(width: availableWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [
+                .font: font,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+        return ceil(rect.height) + Self.topInset + Self.bottomInset
     }
 
-    // MARK: Body
-
-    private var textTypography: (fontSize: CGFloat, fontWeight: Font.Weight, lineSpacing: CGFloat) {
-        let trimmed = payload.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lineCount = trimmed.components(separatedBy: .newlines).count
-        let charCount = trimmed.count
-
-        if charCount <= 30 && lineCount <= 1 {
-            return (fontSize: 18, fontWeight: .medium, lineSpacing: 2)
-        } else if charCount <= 80 && lineCount <= 2 {
-            return (fontSize: 15.5, fontWeight: .medium, lineSpacing: 3)
-        } else if charCount <= 160 && lineCount <= 4 {
-            return (fontSize: 14, fontWeight: .regular, lineSpacing: 3)
-        } else {
-            return (fontSize: 13, fontWeight: .regular, lineSpacing: 3.5)
-        }
+    private var dynamicCardHeight: CGFloat {
+        min(max(naturalContentHeight, PopupMetrics.aiCardMinHeight), PopupMetrics.aiCardMaxHeight)
     }
+
+    // MARK: - Body
 
     private var bodyScroll: some View {
-        let typography = textTypography
-        let bodyHeight = dynamicBodyHeight
-        return ScrollView {
-            Text(payload.text)
-                .font(.system(size: typography.fontSize, weight: typography.fontWeight))
-                .lineSpacing(typography.lineSpacing)
+        ScrollView {
+            bodyText
+                .font(.system(size: 13.5, weight: .regular))
+                .lineSpacing(3.5)
                 .multilineTextAlignment(.leading)
-                .foregroundColor(payload.isError ? Color.red : Color.primary)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .textSelection(.enabled)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, Self.topInset)
+                .padding(.bottom, Self.bottomInset)
         }
-        .frame(height: bodyHeight)
+        .frame(height: dynamicCardHeight)
     }
 
-    // MARK: Footer
+    @ViewBuilder
+    private var bodyText: some View {
+        if showsDiff, hasDiff {
+            Text(diffAttributedText)
+        } else {
+            Text(payload.text)
+                .foregroundColor(payload.isError ? Color.red : Color.primary)
+        }
+    }
 
-    private var isCopyPrimary: Bool {
-        canPaste == false
+    // MARK: - Footer
+
+    private func glassButtonBackground(isHovered: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Self.buttonCornerRadius, style: .continuous)
+        let strokeColor = colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.10)
+        let primaryOpacity: Double = isHovered ? 0.10 : 0.06
+        let shadow1 = Color.black.opacity(colorScheme == .dark ? 0.20 : 0.12)
+        let shadow2 = Color.black.opacity(colorScheme == .dark ? 0.10 : 0.05)
+
+        return shape
+            .fill(.ultraThinMaterial)
+            .overlay(shape.fill(Color.primary.opacity(primaryOpacity)))
+            .overlay(shape.stroke(strokeColor, lineWidth: 0.5))
+            .shadow(color: shadow1, radius: 4, x: 0, y: 2)
+            .shadow(color: shadow2, radius: 1, x: 0, y: 0.5)
+    }
+
+    private func pasteButtonBackground(isHovered: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Self.buttonCornerRadius, style: .continuous)
+        let accentShadow = Color.accentColor.opacity(colorScheme == .dark ? 0.35 : 0.28)
+        let blackShadow = Color.black.opacity(colorScheme == .dark ? 0.20 : 0.10)
+
+        return shape
+            .fill(Color.accentColor.opacity(isHovered ? 0.9 : 1.0))
+            .shadow(color: accentShadow, radius: 5, x: 0, y: 2)
+            .shadow(color: blackShadow, radius: 2, x: 0, y: 1)
     }
 
     private var footer: some View {
         HStack(spacing: 8) {
             Spacer(minLength: 0)
 
+            if !payload.isError {
+                resultButtons
+            } else {
+                Button {
+                    onDismiss()
+                } label: {
+                    Text("Dismiss")
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundColor(PopupThemeModel.restForeground(for: effectiveTheme).opacity(0.85))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(glassButtonBackground(isHovered: isDismissHovered))
+                        .contentShape(RoundedRectangle(cornerRadius: Self.buttonCornerRadius, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .help(String(localized: "Dismiss the error (⎋)"))
+                .onHover { isDismissHovered = $0 }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
+    }
+
+    @ViewBuilder
+    private func copyButtonBackground(isHovered: Bool) -> some View {
+        if isCopyPrimary {
+            pasteButtonBackground(isHovered: isHovered)
+        } else {
+            glassButtonBackground(isHovered: isHovered)
+        }
+    }
+
+    private var isCopyPrimary: Bool {
+        canPaste == false
+    }
+
+    /// Copy / Paste — the answers that consume the result. Absent on an error card, which only
+    /// offers Close.
+    @ViewBuilder
+    private var resultButtons: some View {
+        Group {
             Button {
                 onCopy()
             } label: {
@@ -259,29 +580,26 @@ public struct ResultCardView: View {
                     if isCopyPrimary {
                         Image(systemName: "return")
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .opacity(0.8)
+                            .opacity(0.85)
                     } else {
-                        HStack(spacing: 2) {
-                            Image(systemName: "shift")
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            Image(systemName: "return")
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        }
-                        .opacity(0.6)
+                        Text("⌘C")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .opacity(0.7)
                     }
                 }
                 .font(.system(size: 12, weight: isCopyPrimary ? .semibold : .medium))
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundColor(isCopyPrimary ? .white : PopupThemeModel.restForeground(for: effectiveTheme))
-                .padding(.horizontal, isCopyPrimary ? 12 : 10)
-                .padding(.vertical, 5)
-                .background(
-                    isCopyPrimary ? Color.accentColor : Color.primary.opacity(0.06),
-                    in: RoundedRectangle(cornerRadius: 6, style: .continuous)
-                )
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(copyButtonBackground(isHovered: isCopyHovered))
+                .contentShape(RoundedRectangle(cornerRadius: Self.buttonCornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
-            .help(isCopyPrimary ? String(localized: "Copy the response to the clipboard and close (⏎)") : String(localized: "Copy the response to the clipboard and close (⇧⏎)"))
+            .help(isCopyPrimary ? String(localized: "Copy the response to the clipboard and close (⏎)") : String(localized: "Copy the response to the clipboard and close (⌘C)"))
             .accessibilityLabel("Copy response and close")
+            .onHover { isCopyHovered = $0 }
 
             if canPaste != false {
                 Button {
@@ -291,25 +609,23 @@ public struct ResultCardView: View {
                         Text("Paste")
                         Image(systemName: "return")
                             .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .opacity(0.8)
+                            .opacity(0.85)
                     }
                     .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+                    .fixedSize()
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(pasteButtonBackground(isHovered: isPasteHovered))
+                    .contentShape(RoundedRectangle(cornerRadius: Self.buttonCornerRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .help("Paste the response over the selection (⏎)")
+                .help(String(localized: "Paste the response over the selection (⏎)"))
                 .accessibilityLabel("Paste response over selection")
+                .onHover { isPasteHovered = $0 }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            Rectangle().fill(PopupThemeModel.dividerColor(for: effectiveTheme))
-                .frame(height: 0.6),
-            alignment: .top
-        )
     }
 }
+

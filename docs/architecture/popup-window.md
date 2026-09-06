@@ -28,8 +28,8 @@ The floating popup panel subsystem presents contextual actions near the user's c
 ### 2. [`PopupWindowController`](../../Sources/OpenClip/UI/Popup/PopupWindowController.swift)
 - **Responsibility**: Controls window creation, display lifecycle, event monitoring, hover tracking, and the popup mode state machine (actions bar ↔ search palette ↔ content/AI-card).
 - **Event Handling**: Sets up local and global `NSEvent` monitors (`.leftMouseDown`, `.mouseMoved`, `.scrollWheel`, `.keyDown`). The local monitor sees mouse events over the panel; the global monitor sees events system-wide.
-- **Dismissal Threshold**: Automatically dismisses the popup if the cursor moves beyond `PopupMetrics.popupDismissalDistance` (suspended in search mode and while a content/AI-card is open).
-- **Keyboard Dismissal**: Requires Accessibility permission (the global monitor). In actions mode any key — including `Escape` — dismisses the popup; the global monitor is observation-only, so the keystroke still lands in the source app's document and the panel never needs to become key. In search mode the panel *is* key, so keys go to the search field (`Escape` clears a scoped query, then exits). In content mode the panel is *also* key: the AI result card owns all keys via SwiftUI `.onKeyPress`, `Escape` collapses the card back to the bar (`exitContent()`), and the controller monitor stays observation-only so it never double-fires Esc.
+- **Dismissal Threshold**: Automatically dismisses the popup if the cursor moves beyond `PopupMetrics.popupDismissalDistance` (suspended in search mode and while a content/AI-card is open). For the result card, un-dragged cards dismiss normally on outside click or app switch; if dragged by the user (`hasUserMovedCard`), `cardIsModal` pins the card against outside clicks and document scrolls until Copy, Paste, Close or Esc (switching active applications or spaces still dismisses).
+- **Keyboard Dismissal**: Requires Accessibility permission (the global monitor). In actions mode any key — including `Escape` — dismisses the popup; the global monitor is observation-only, so the keystroke still lands in the source app's document and the panel never needs to become key. In search mode the panel *is* key, so keys go to the search field (`Escape` clears a scoped query, then exits). In content mode the panel is *also* key: the AI result card owns all keys via SwiftUI `.onKeyPress`, `Escape` closes the card (`hide()`), and the controller monitor stays observation-only so it never double-fires Esc — bar the one case where the panel has lost key (the card outlives clicks into the source app document), where the monitor answers Esc itself.
 
 ---
 
@@ -84,24 +84,63 @@ that replaced the former interactive canvas.
   `PopupWindowController.showResultCard`; any other text-returning action (e.g. a shell/JS extension)
   lands there through the delivery snapshot in `handleEffect`, which passes the performing action's
   customization-resolved icon alongside its title. Both set `modeStore.resultCard`
-  (`ResultCardPayload { text, isError, title, icon, isStreaming }`), `modeStore.mode = .content`,
-  and enter key mode.
+  (`ResultCardPayload { text, isError, title, icon, isStreaming, original }` — `original` is the
+  selection the action ran on, carried so the card can diff it against the result),
+  `modeStore.mode = .content`, and enter key mode.
   The card's chrome header (back chevron + the producing action's icon — sparkles when none,
-  e.g. AI streaming — + title) is rendered by `ResultCardView`
+  e.g. AI streaming — + title + optional diff toggle + close button `✕`) is rendered by `ResultCardView`
   (`Sources/OpenClip/UI/Popup/ResultCardView.swift`), with the back chevron wired to
-  `PopupView.onExitContent` → `PopupWindowController.exitContent()`.
-- **Card surface**: the card renders a scrollable body plus a Copy/Paste footer (hidden when
+  `PopupView.onExitContent` → `PopupWindowController.exitContent()`, and both the `✕` button and Esc wired to
+  `PopupView.onDismissContent` → `hide()`.
+- **Card surface**: the card renders a scrollable body plus a compact Copy/Paste footer (or a Dismiss button when
   `isError`; Paste also hidden while `modeStore.canPaste == false`), sized by `PopupMetrics`
   (`aiCardMinWidth 220` / `aiCardIdealWidth 300` /
-  `aiCardMaxWidth 360` / `aiCardBodyHeight 120`). Content mode is **key exactly like search**:
+  `aiCardMaxWidth 360` / `aiCardBodyHeight 120`), measured against whichever body is showing
+  (the diff is longer than the plain result). The close action lives in the header (`✕`), keeping the footer
+  clean and compact without requiring artificial width floors. Content mode is **key exactly like search**:
   the panel becomes key through the same `enterKeyMode()` primitive, and the card owns all keys
-  via SwiftUI `.onKeyPress` — Esc collapses the card back to the bar (`exitContent()`); Return
-  pastes and Shift+Return copies (Return falls back to copy when paste is unavailable); the
-  controller monitor observes content Esc only so non-key transitions still collapse.
-- **Copy/Paste footer**: Paste (right) and Copy (left of it) both route through
+  via SwiftUI `.onKeyPress` — Esc closes the card outright (`hide()`, *not* a collapse back to the
+  bar — the back chevron is what collapses); Return pastes and Shift+Return copies (Return falls
+  back to copy when paste is unavailable); ⌘D toggles the diff when available. The controller monitor stays
+  observation-only, with one exception: once the panel has lost key (the user clicked into the source
+  document while a dragged card stayed up) it answers Esc itself, so the two can never double-fire.
+- **Diff view**: `Core/Utils/TextDiff.swift` (pure domain) diffs `original` → `text` at character
+  level — a Myers greedy diff over grapheme clusters, preceded by common prefix/suffix trimming,
+  bounded by `maxComparableLength` (2 500 chars of changed middle) and `maxEditDistance` (300);
+  exceeding either degrades to wholesale replacement.
+  Diff availability is gated by `TextDiff.isMeaningfulEdit(from:to:)` — only genuine in-place revisions
+  (proofreads, grammar fixes, tone tweaks with similarity $\ge 50\%$) show the diff toggle; wholesale
+  rewrites (summaries, explanations, translations) and large texts automatically hide the diff button
+  without hardcoding action IDs. When available, the card renders the segments as one attributed string:
+  removed characters red + struck through, added characters green, both on a tinted background so a changed
+  space is visible. The header toggle (`arrow.left.arrow.right`, also ⌘D) switches between diff and plain result.
+  A streaming response is never diffed; the comparison waits for the final settled text.
+- **Dragged to pin**: an un-dragged result card remains ephemeral and dismisses upon clicking outside, scrolling,
+  or switching apps. If the user drags the card by its header, `PopupWindowController.hasUserMovedCard` sets
+  `cardIsModal = true`, pinning the card against outside clicks in the source document.
+  While pinned, `MacSelectionMonitor.isSuppressedForApp` suppresses selection detection specifically for
+  the card's source app (`popup.sourceAppBundleID`), so selecting words in the source document to edit by hand
+  cannot pop the action bar over the card being referenced. All other applications remain completely unsuppressed.
+  Switching to another application or space dismisses the card and resets pinning.
+- **Draggable**: the header between the chevron and the diff/close actions carries a SwiftUI
+  `DragGesture` that reports `ResultCardDragPhase` (`began`/`changed`/`ended`) to
+  `PopupWindowController.handleCardDrag`, which moves the panel. AppKit dragging is **not**
+  available here and three obvious routes are dead ends: the panel has no title bar,
+  `isMovableByWindowBackground` never fires because the SwiftUI hosting view consumes the press,
+  and an `NSViewRepresentable` handle never receives `mouseDown` either — `NSHostingView` answers
+  `hitTest` with *itself* for the whole card and dispatches through SwiftUI's gesture system
+  (`ResultCardModalTests.testHeaderDragGestureReachesTheCard` pins this). The move is computed from
+  the **absolute** cursor position against an anchor taken at `began`, never from the gesture's
+  translation: the window moves out from under the pointer, so a translation-based move fights
+  itself. `prepareForUserDrag` sets `horizontalAnchor = .none`, so a later width change (the diff
+  toggle resizes the card) keeps the user's placement instead of re-centering, and raises
+  `isUserDragging`, which stops `updatePopupHover` from toggling `ignoresMouseEvents` mid-drag.
+- **Footer**: Paste (right) and Copy (left of it) both route through
   `PopupView.onCardEffect` → `PopupWindowController.performCardEffect` — an explicit request that
   bypasses the paste-vs-copy re-decision. Both dismiss the popup and perform (Paste pastes over
-  the selection, Copy copies to the clipboard) — Copy behaves like Paste and closes too.
+  the selection, Copy copies to the clipboard) — Copy behaves like Paste and closes too. An error
+  card displays a "Dismiss" button. With the close action in the header, short result cards stay
+  compact and neat without wrapping button labels.
 - **Paste availability gating**: the trigger sites (hotkey handler, `MacSelectionMonitor`) start
   `PopupWindowController.preparePasteProbe(for:policy:)` in parallel with selection retrieval and hand the
   awaited result to `show(for:pasteAvailable:)`, which stores `modeStore.canPaste` before the first
@@ -143,12 +182,18 @@ already visible; the bar's command-glyph button enters search via `onEnterSearch
 
 - **Mode state**: [`PopupModeStore`](../../Sources/OpenClip/UI/Popup/PopupModeStore.swift) holds
   `mode` (`.actions`/`.search`/`.content`), `searchResultsAbove` (set from `cardAbove` in
-  `show(for:)`), plus the content payload `resultCard`. Statuses live in the floating toast, not the
+  `show(for:)`), plus the content payload `resultCard` (which carries the `original` selection for
+  the card's diff). Statuses live in the floating toast, not the
   store. `PopupView` branches on `modeStore.mode` in `unifiedHStack` and renders
   `PopupSearchView` — the field + result list rendered as **one surface** with the bar, results
   above or below the field by `searchResultsAbove`.
-- **Catalog & matching**: the palette searches the **full** catalog (enabled + disabled, no context
-  filtering) via `ActionCoordinator.searchCatalog` → `ActionRegistry.searchCatalog`; `ActionSearch`
+- **Catalog & matching**: the palette lists what the user can actually run — anything switched off
+  in settings is absent, matching the bar: per-action (`disabledActionIDs`), whole-package
+  (`disabledPackages`), a disabled group (its members go with it, since the palette lists members
+  rather than the row), and an AI preset whose toggle in AI → Actions is off (or with AI disabled
+  wholesale), which `AIAction.isEnabled` reports. Context gating drops the rest
+  (`isEnabled(for:)`, clipboard-fallback vs `requiresLiveSelection`). Via
+  `ActionCoordinator.searchCatalog` → `ActionRegistry.searchCatalog`; `ActionSearch`
   ranks by case-insensitive substring (prefix > contains > keyword). Up to `PopupMetrics.searchMaxRows`
   rows render (`searchMaxRows = 5`, `searchResultRowHeight = 32`, height capped by
   `PopupMetrics.popupMaxHeight`).
@@ -158,6 +203,21 @@ already visible; the bar's command-glyph button enters search via `onEnterSearch
 - **Escape** clears the query first, then exits to the actions bar. In a **scoped** sub-action
   palette, Escape instead drops the scope (`PopupSearchView.exitSearch()` → `onExitScope`) and
   closes back to the bar.
+- **Row shortcuts**: ⌘1…⌘9 run the first nine rows outright (`PopupSearchView.runRow(at:)`), with
+  the label drawn on the row (`shortcutHint(forRow:)`); rows past the ninth have none, and a digit
+  with no matching row falls through to the field rather than being swallowed. Because OpenClip's
+  popup is a non-activating panel (macOS routes command-modified keys to the active app), these
+  shortcuts are registered as global Carbon hot keys via `PaletteRowShortcuts.swift`, activated
+  strictly while the palette is visible and parked the moment it closes — alongside arrows, Return,
+  hover, and click.
+- **Placement is the same for both entry points.** A palette opened directly by the hotkey
+  (`show(for:initialMode:.search)`) goes through `PopupPositioner.calculateFrame` /
+  `positionPanel` exactly like the bar the mouse opens: anchored on the selection, honoring the
+  `popupAlignment` and `popupVerticalPosition` preferences, and clamped to the screen containing
+  the cursor. It used to be centred on the main screen, which ignored both settings and put the
+  palette nowhere near the text. Entering search *from the bar* still re-anchors to the bar
+  instead (`enterSearch(buttonLocalFrame:)` + `preSearchFrame`), so the field opens over the row
+  that was clicked.
 
 ### Scoped Sub-Action Palette
 

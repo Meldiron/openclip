@@ -4,6 +4,9 @@
 // The action-search palette: a focused text field filtering the full action catalog (enabled and
 // disabled) as you type, rendered as one surface with the popup bar. Results appear above or
 // below the field depending on popup position; up to 3 rows visible, scrollable beyond that.
+// Rows are chosen with the arrows + Return, the mouse, or ⌘1…⌘9 — the first nine rows carry a
+// shortcut (shown on the row) that runs them outright. The keys live on the focused field, so
+// they exist only while the palette is open.
 import SwiftUI
 import AppKit
 import Core
@@ -136,6 +139,7 @@ public struct PopupSearchView: View {
             }
         }
         .frame(width: PopupMetrics.searchPanelContentWidth)
+        .background(CommandDigitCatcher { row in runRow(at: row - 1) })
         .clipShape(RoundedRectangle(cornerRadius: PopupMetrics.searchCornerRadius, style: .continuous))
         .onPreferenceChange(SearchHoverFramePreferenceKey.self) { frames in
             MainActor.assumeIsolated {
@@ -174,7 +178,9 @@ public struct PopupSearchView: View {
                 .onSubmit { runSelected() }
                 .onKeyPress { press in
                     // Attached to the focused field: Escape drops the scope (or exits search),
-                    // up/down move the result selection.
+                    // up/down move the result selection. ⌘-digits never arrive here — a
+                    // command-modified key is dispatched through `performKeyEquivalent` and never
+                    // reaches `keyDown:` — so those live in `CommandDigitCatcher` below.
                     if press.key == .escape {
                         exitSearch()
                         return .handled
@@ -306,6 +312,13 @@ public struct PopupSearchView: View {
                         .font(.caption2)
                         .foregroundColor(PopupThemeModel.restSecondary(for: effectiveTheme))
                 }
+                if let shortcut = Self.shortcutHint(forRow: index) {
+                    Text(shortcut)
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundColor(isSelected ? .white.opacity(0.85) : PopupThemeModel.restSecondary(for: effectiveTheme))
+                        .accessibilityLabel("Command \(index + 1)")
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: PopupMetrics.searchResultRowHeight)
@@ -325,6 +338,40 @@ public struct PopupSearchView: View {
         guard newIndex != selectedIndex else { return }
         scrollSelectionOnKeyboard = true
         selectedIndex = newIndex
+    }
+
+    /// How many rows carry a ⌘-digit shortcut: ⌘1…⌘9. Rows past the ninth have none — ⌘0 is not
+    /// a tenth row, it is simply unhandled.
+    static let maxShortcutRows = 9
+
+    /// The 1-based row a ⌘-digit event points at, or nil when the event is not one. Pure, so the
+    /// modifier rules are testable without a window: exactly Command (⌥/⇧/⌃ combinations are
+    /// somebody else's shortcut), and a single digit 1...9.
+    static func commandDigitRow(for event: NSEvent) -> Int? {
+        let modifiers = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .function, .numericPad, .help])
+        guard modifiers == .command else { return nil }
+        guard let characters = event.charactersIgnoringModifiers, characters.count == 1,
+              let digit = characters.first?.wholeNumberValue,
+              (1...maxShortcutRows).contains(digit) else { return nil }
+        return digit
+    }
+
+    /// The shortcut label for a row, or nil past the ninth.
+    static func shortcutHint(forRow index: Int) -> String? {
+        guard index >= 0, index < maxShortcutRows else { return nil }
+        return "⌘\(index + 1)"
+    }
+
+    /// Runs the row a ⌘-digit points at. Returns false when there is no such row, so the keystroke
+    /// falls through to the field (⌘5 in a three-result list types nothing and does nothing)
+    /// instead of being silently swallowed.
+    private func runRow(at index: Int) -> Bool {
+        guard index >= 0, index < Self.maxShortcutRows, results.indices.contains(index) else { return false }
+        selectedIndex = index
+        runSelected()
+        return true
     }
 
     private func runSelected() {
@@ -496,6 +543,55 @@ public struct PopupSearchView: View {
             }
         } else if hoveredTarget == target {
             hoveredTarget = nil
+        }
+    }
+}
+
+
+// MARK: - ⌘-digit Key Equivalents
+
+/// Holds the palette's ⌘1…⌘9 row runner. The handler is refreshed on every SwiftUI update, so it
+/// always runs against the current result list — which is why the runner lives in an AppKit view
+/// the controller can find (`PopupWindowController.runPaletteRow`) rather than in a closure
+/// captured out of a SwiftUI `View` struct, where the `@State` results would go stale.
+///
+/// It also answers `performKeyEquivalent`, which covers the case where OpenClip *is* the active
+/// app and AppKit runs its key-equivalent phase normally. That phase never runs for the popup's
+/// non-activating panel, which is why `PaletteRowShortcuts` exists — see that file for the
+/// routing story.
+struct CommandDigitCatcher: NSViewRepresentable {
+    /// Runs the 1-based row, returning false when there is none (the event then falls through).
+    let onRow: @MainActor (Int) -> Bool
+
+    func makeNSView(context: Context) -> CatcherView {
+        let view = CatcherView()
+        view.onRow = onRow
+        return view
+    }
+
+    func updateNSView(_ nsView: CatcherView, context: Context) {
+        nsView.onRow = onRow
+    }
+
+    final class CatcherView: NSView {
+        var onRow: (@MainActor (Int) -> Bool)?
+
+        /// Runs a 1-based row directly, for the global ⌘-digit hot keys — those never arrive as
+        /// events in this process, so there is no key equivalent to walk.
+        @MainActor
+        func run(row: Int) -> Bool {
+            onRow?(row) ?? false
+        }
+
+        override func performKeyEquivalent(with event: NSEvent) -> Bool {
+            guard let row = PopupSearchView.commandDigitRow(for: event) else {
+                return super.performKeyEquivalent(with: event)
+            }
+            // Claimed whether or not a row exists: while the palette is on screen ⌘1…⌘9 are its
+            // own, so ⌘5 in a three-row list quietly does nothing instead of beeping or reaching
+            // the app underneath.
+            MainActor.assumeIsolated { _ = onRow?(row) }
+            return true
         }
     }
 }

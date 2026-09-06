@@ -71,8 +71,9 @@ public struct SelectionRetrievalCoordinator: Sendable {
     /// Reads the current selection for `app` under `policy`, or `nil` when the gate rejects the
     /// context or no strategy produced text. `cursor` is the system cursor class (`CursorClassifier.current`,
     /// which is `@MainActor`) captured by the caller; `.unknown` (unrecognized cursor) never blocks.
-    /// `isSelectAll` marks a ⌘A gesture: a copy-based read is then skipped unless the focused element
-    /// is text-bearing, so row selections in Finder/Mail/table views never fire a real copy.
+    /// `isSelectAll` marks a whole-container select gesture (⌘A, and ⌘L for the address bar / line):
+    /// retrieval is then skipped when the focus is a row/list container, so row selections in
+    /// Finder/Mail/table views never fire a real copy.
     public func retrieve(
         for app: AppIdentity,
         policy: AppPolicyContext,
@@ -103,12 +104,17 @@ public struct SelectionRetrievalCoordinator: Sendable {
             return nil
         }
 
-        // ⌘A select-all on a non-text element (row selection in Finder/Mail/table views) must never
-        // produce text: AX reads would surface the row labels, and a copy trigger would fire a real
-        // copy on rows, not text. Guard before the cascade so every strategy, not just copy modes,
-        // honors it.
-        if isSelectAll, !Self.isTextBearing(target) {
-            Log.selection.debug("coordinator: select-all on non-text element; skipping retrieval")
+        // A whole-container select gesture (⌘A, ⌘L) landing on a *row* selection — Finder, Mail,
+        // table views — must never produce text: AX reads would surface the row labels, and a copy
+        // trigger would fire a real copy on rows, not text. The guard names those containers
+        // explicitly rather than demanding a known text role: apps that expose no usable AX text
+        // element at all (editors and terminals drawing their own text — Zed, Ghostty, Electron
+        // hosts) are precisely the ones that depend on the copy strategies, and a whitelist made
+        // ⌘A the one gesture that never worked there while a drag or ⇧+arrow in the same element
+        // succeeded. Unknown is allowed; only a recognized row container is refused. Guarded
+        // before the cascade so every strategy, not just copy modes, honors it.
+        if isSelectAll, Self.isRowSelectionContext(target) {
+            Log.selection.debug("coordinator: select-all on a row-selection element; skipping retrieval")
             return nil
         }
 
@@ -354,6 +360,21 @@ public struct SelectionRetrievalCoordinator: Sendable {
     /// Whether the focused element can hold a *text* selection (as opposed to a row/table selection
     /// that ⌘A would expand). True for editable text roles, anything inside a web area, and any
     /// element that already exposes a text selection range.
+    /// AX roles whose "select all" selects rows/items rather than text.
+    private static let rowSelectionRoles: Set<String> = [
+        "AXTable", "AXOutline", "AXBrowser", "AXList", "AXRow", "AXCell", "AXColumn", "AXGrid"
+    ]
+
+    /// True when a select-all gesture would be selecting rows rather than text. A text element
+    /// wins even inside a table (a cell being edited is still text), so `isTextBearing` is checked
+    /// first; otherwise the focused element — or a container it sits in — has to be a recognized
+    /// row/list role. Anything else, including an app that exposes no roles at all, is allowed.
+    private static func isRowSelectionContext(_ target: AXElementInspector.Target) -> Bool {
+        if isTextBearing(target) { return false }
+        if let role = target.role, rowSelectionRoles.contains(role) { return true }
+        return !target.containedInRoles.isDisjoint(with: rowSelectionRoles)
+    }
+
     private static func isTextBearing(_ target: AXElementInspector.Target) -> Bool {
         if target.selectedTextRange != nil { return true }
         let textRoles: Set<String> = ["AXTextField", "AXTextArea", "AXSearchField", "AXComboBox", "AXWebArea"]

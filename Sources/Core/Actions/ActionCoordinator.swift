@@ -82,6 +82,12 @@ public final class ActionCoordinator: ObservableObject, Sendable {
     public func unregister(actionID: String) {
         registry.unregister(actionID: actionID)
     }
+
+    public func replaceActions(matching isMatch: @escaping (any Action) -> Bool, with newActions: [any Action]) {
+        registry.replaceRegisteredActions(matching: isMatch, with: newActions)
+        self.actions = registry.actions
+        syncGroupMemberOrder()
+    }
     
     public func moveActions(from source: IndexSet, to destination: Int) {
         registry.moveActions(from: source, to: destination)

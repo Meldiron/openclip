@@ -360,6 +360,7 @@
   "Show completions": "顯示自動完成",
   "Copy the response to the clipboard and close (⏎)": "拷貝回覆至剪貼簿並關閉（⏎）",
   "Copy the response to the clipboard and close (⇧⏎)": "拷貝回覆至剪貼簿並關閉（⇧⏎）",
+  "Copy the response to the clipboard and close (⌘C)": "拷貝回覆至剪貼簿並關閉（⌘C）",
   "Opening %@…": "正在打開 %@…",
   "Copied": "已拷貝",
   "Cut": "剪下",
@@ -392,7 +393,6 @@
   "OpenClip could not remove extension: %@": "OpenClip 無法移除擴充功能：%@",
   "Invalid download URL.": "下載網址無效。",
   "Exit search": "結束搜尋",
-  "Back to actions (Esc)": "返回動作（Esc）",
   "Paste the response over the selection (⏎)": "將回覆貼上並取代選取內容（⏎）",
   "Open AI settings": "打開 AI 設定",
   "Fetch available models live from API": "從 API 即時取得可用模型",
@@ -426,5 +426,14 @@
   "Pause in %@": "在 %@ 中暫停",
   "Paused in %@": "已在 %@ 中暫停",
   "Pause in App": "在應用中暫停",
-  "Resume OpenClip (%lldm left)": "恢復 OpenClip (剩餘 %lld 分鐘)"
+  "Resume OpenClip (%lldm left)": "恢復 OpenClip (剩餘 %lld 分鐘)",
+  "Show what changed (⌘D)": "顯示變更內容 (⌘D)",
+  "Show the plain result (⌘D)": "顯示純文字結果 (⌘D)",
+  "Toggle change highlighting": "切換變更標示",
+  "Drag to move": "拖曳以移動",
+  "Close the card (⎋)": "關閉卡片 (⎋)",
+  "Close the result card": "關閉結果卡片",
+  "Close (⎋)": "關閉 (⎋)",
+  "Close result card": "關閉結果卡片",
+  "Dismiss the error (⎋)": "關閉錯誤提示 (⎋)"
 }

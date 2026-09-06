@@ -35,6 +35,11 @@ public struct PopupView: View {
     public let onCancelSubBarDwell: (@MainActor () -> Void)?
     /// Called when the AI result card should collapse back to the bar (back chevron).
     public let onExitContent: @MainActor () -> Void
+    /// Called when the result card should close outright (Esc) — the popup goes away rather than
+    /// falling back to the bar.
+    public let onDismissContent: @MainActor () -> Void
+    /// Called as the result card's header handle is dragged, so the controller can move the panel.
+    public let onCardDrag: (@MainActor (ResultCardDragPhase) -> Void)?
     /// The AI result card's Paste/Copy buttons — explicit user requests routed through the
     /// controller's keep-open card-effect door (bypasses the paste-vs-copy re-decision).
     public let onCardEffect: @MainActor (ActionResult) -> Void
@@ -146,6 +151,8 @@ public struct PopupView: View {
         onEnterSearch: @escaping @MainActor (CGRect?) -> Void = { _ in },
         onExitSearch: @escaping @MainActor () -> Void = {},
         onExitContent: @escaping @MainActor () -> Void = {},
+        onDismissContent: (@MainActor () -> Void)? = nil,
+        onCardDrag: (@MainActor (ResultCardDragPhase) -> Void)? = nil,
         onCardEffect: @escaping @MainActor (ActionResult) -> Void = { _ in },
         onResult: @escaping @MainActor (ActionResult) -> Void,
         onContentSizeChange: (@MainActor (CGSize) -> Void)? = nil,
@@ -176,6 +183,8 @@ public struct PopupView: View {
         self.onRequestSubBarDwell = onRequestSubBarDwell
         self.onCancelSubBarDwell = onCancelSubBarDwell
         self.onExitContent = onExitContent
+        self.onDismissContent = onDismissContent ?? onExitContent
+        self.onCardDrag = onCardDrag
         self.onCardEffect = onCardEffect
         self.onHoveredActionChanged = onHoveredActionChanged
         self.onEnteredScopedSearch = onEnteredScopedSearch
@@ -358,7 +367,7 @@ public struct PopupView: View {
     /// of the bar (content mode). Paste/Copy are explicit user requests routed through
     /// onCardEffect (bypassing the paste-vs-copy re-decision) that both dismiss the popup; the
     /// Paste button is hidden when the target app can't paste; the back chevron collapses back to
-    /// the bar.
+    /// the bar and Esc closes the card outright.
     @ViewBuilder
     private var resultCard: some View {
         if let payload = modeStore.resultCard {
@@ -366,8 +375,10 @@ public struct PopupView: View {
                 payload: payload,
                 canPaste: modeStore.canPaste,
                 onExit: { onExitContent() },
+                onDismiss: { onDismissContent() },
                 onPaste: { onCardEffect(.paste(payload.text)) },
-                onCopy: { onCardEffect(.copy(payload.text)) }
+                onCopy: { onCardEffect(.copy(payload.text)) },
+                onDrag: { phase in onCardDrag?(phase) }
             )
             .environment(\.colorScheme, effectiveColorScheme)
             .environment(\.popupEffectiveTheme, effectiveTheme)
@@ -470,10 +481,18 @@ public struct PopupView: View {
             },
             onRunAI: { actionID in
                 onActionPerformed?(actionID)
-                onExitSearch()
                 if let onRunAI {
+                    // Run first: the controller's AI flow snapshots the selection and dismisses
+                    // the popup itself. Exiting search beforehand dismissed it *for* a palette
+                    // opened straight from the hotkey (`openedDirectlyInSearch` → `hide()`),
+                    // which cleared `currentActionContext` — so the preset never ran and only
+                    // logged "Cannot run AI preset". From the bar the same exit merely returned
+                    // to the bar, which is why AI worked there and nowhere else.
                     onRunAI(actionID)
                 } else {
+                    // Preview/static fallback: no controller flow to dismiss anything, so the
+                    // palette closes itself before streaming into the card.
+                    onExitSearch()
                     guard let preset = aiManager.preset(forActionID: actionID) else { return }
                     runAIPreset(prompt: aiManager.promptForPreset(preset), title: preset.title)
                 }

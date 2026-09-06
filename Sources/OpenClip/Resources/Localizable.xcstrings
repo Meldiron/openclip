@@ -1737,34 +1737,6 @@
         }
       }
     },
-    "Back to actions (Esc)": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "返回动作（Esc）"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "返回動作（Esc）"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retour aux actions (Échap)"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アクションに戻る (Esc)"
-          }
-        }
-      }
-    },
     "Baidu": {
       "localizations": {
         "zh-Hans": {
@@ -2493,6 +2465,118 @@
         }
       }
     },
+    "Close (⎋)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭 (⎋)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉 (⎋)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer (⎋)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる (⎋)"
+          }
+        }
+      }
+    },
+    "Close result card": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭结果卡片"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉結果卡片"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer la carte de résultat"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果カードを閉じる"
+          }
+        }
+      }
+    },
+    "Close the card (⎋)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭卡片 (⎋)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉卡片 (⎋)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer la carte (⎋)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カードを閉じる (⎋)"
+          }
+        }
+      }
+    },
+    "Close the result card": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭结果卡片"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉結果卡片"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer la carte de résultat"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果カードを閉じる"
+          }
+        }
+      }
+    },
     "Cloud API": {
       "localizations": {
         "zh-Hans": {
@@ -2965,6 +3049,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "応答をクリップボードにコピーして閉じる (⇧⏎)"
+          }
+        }
+      }
+    },
+    "Copy the response to the clipboard and close (⌘C)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷贝回复到剪贴板并关闭（⌘C）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拷貝回覆至剪貼簿並關閉（⌘C）"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier la réponse dans le presse-papiers et fermer (⌘C)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "応答をクリップボードにコピーして閉じる (⌘C)"
           }
         }
       }
@@ -3529,6 +3641,34 @@
         }
       }
     },
+    "Dismiss the error (⎋)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭错误提示 (⎋)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關閉錯誤提示 (⎋)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermer l'erreur (⎋)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラーを閉じる (⎋)"
+          }
+        }
+      }
+    },
     "Documentation": {
       "localizations": {
         "zh-Hans": {
@@ -3609,6 +3749,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "アイコンをドラッグしてグループに追加"
+          }
+        }
+      }
+    },
+    "Drag to move": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖动以移动"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖曳以移動"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faire glisser pour déplacer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドラッグして移動"
           }
         }
       }
@@ -9913,6 +10081,62 @@
         }
       }
     },
+    "Show the plain result (⌘D)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示纯文本结果 (⌘D)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示純文字結果 (⌘D)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le résultat simple (⌘D)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "結果のみを表示 (⌘D)"
+          }
+        }
+      }
+    },
+    "Show what changed (⌘D)": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示更改内容 (⌘D)"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示變更內容 (⌘D)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les modifications (⌘D)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更点を表示 (⌘D)"
+          }
+        }
+      }
+    },
     "Simplified Chinese (简体中文)": {
       "localizations": {
         "zh-Hans": {
@@ -10525,6 +10749,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "タイトル"
+          }
+        }
+      }
+    },
+    "Toggle change highlighting": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换更改高亮"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換變更標示"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activer ou désactiver la mise en évidence des modifications"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更のハイライトを切り替える"
           }
         }
       }

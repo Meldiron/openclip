@@ -56,13 +56,14 @@ public enum PopupMetrics {
     /// Native AI result card sizing: width clamped to the shared popup column and a max body
     /// height so a long response scrolls instead of growing the panel without bound.
     public static let aiCardMinWidth: CGFloat = 220
-    public static let aiCardIdealWidth: CGFloat = 300
+    public static let aiCardIdealWidth: CGFloat = 320
     public static let aiCardMaxWidth: CGFloat = 360
-    /// The card's scrollable body region is a fixed height: a ScrollView with only `.maxHeight`
-    /// reports a starved ideal height, so the panel would never grow to fit the response (the body
-    /// collapsed to nothing while the header/footer rendered). A concrete height gives the card a
-    /// deterministic preferred size and keeps the whole card under `popupMaxHeight`.
-    public static let aiCardBodyHeight: CGFloat = 160
+    public static let aiCardMinHeight: CGFloat = 155
+    public static let aiCardMaxHeight: CGFloat = 262
+    /// The card's scrollable body region has a max height so a long response scrolls instead of
+    /// growing the panel without bound. Clamped so that the card plus popupShadowInset stays under
+    /// `popupMaxHeight` (300 pt), avoiding window clipping.
+    public static let aiCardBodyHeight: CGFloat = 170
     /// How long an info/error toast stays up before auto-dismissing (1.2 s — long enough to read
     /// "Copied"-style feedback). Loading toasts have no timer — they live until the action's
     /// result lands.

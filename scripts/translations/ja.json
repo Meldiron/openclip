@@ -360,6 +360,7 @@
   "Show completions": "補完を表示",
   "Copy the response to the clipboard and close (⏎)": "応答をクリップボードにコピーして閉じる (⏎)",
   "Copy the response to the clipboard and close (⇧⏎)": "応答をクリップボードにコピーして閉じる (⇧⏎)",
+  "Copy the response to the clipboard and close (⌘C)": "応答をクリップボードにコピーして閉じる (⌘C)",
   "Opening %@…": "%@を開いています…",
   "Copied": "コピーしました",
   "Cut": "カット",
@@ -392,7 +393,6 @@
   "OpenClip could not remove extension: %@": "OpenClipは拡張機能を削除できませんでした: %@",
   "Invalid download URL.": "ダウンロードURLが無効です。",
   "Exit search": "検索を終了",
-  "Back to actions (Esc)": "アクションに戻る (Esc)",
   "Paste the response over the selection (⏎)": "選択範囲に応答をペースト (⏎)",
   "Open AI settings": "AI設定を開く",
   "Fetch available models live from API": "APIから利用可能なモデルをライブ取得",
@@ -426,5 +426,14 @@
   "Pause in %@": "%@ で一時停止",
   "Paused in %@": "%@ で一時停止中",
   "Pause in App": "アプリで一時停止",
-  "Resume OpenClip (%lldm left)": "OpenClip を再開 (残り %lld 分)"
+  "Resume OpenClip (%lldm left)": "OpenClip を再開 (残り %lld 分)",
+  "Show what changed (⌘D)": "変更点を表示 (⌘D)",
+  "Show the plain result (⌘D)": "結果のみを表示 (⌘D)",
+  "Toggle change highlighting": "変更のハイライトを切り替える",
+  "Drag to move": "ドラッグして移動",
+  "Close the card (⎋)": "カードを閉じる (⎋)",
+  "Close the result card": "結果カードを閉じる",
+  "Close (⎋)": "閉じる (⎋)",
+  "Close result card": "結果カードを閉じる",
+  "Dismiss the error (⎋)": "エラーを閉じる (⎋)"
 }

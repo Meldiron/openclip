@@ -184,17 +184,6 @@ final class PopupPositionerTests: XCTestCase {
         XCTAssertTrue(PopupPositioner.isPlacedAbove(frame: frame, releasePoint: release))
     }
 
-    func testCenterInScreen() {
-        let screenBounds = CGRect(x: 100, y: 50, width: 800, height: 600)
-        let popupSize = CGSize(width: 300, height: 200)
-        let centered = PopupPositioner.centerInScreen(popupSize: popupSize, screenBounds: screenBounds)
-
-        XCTAssertEqual(centered.origin.x, 100 + (800 - 300) / 2)
-        XCTAssertEqual(centered.origin.y, 50 + (600 - 200) / 2)
-        XCTAssertEqual(centered.width, 300)
-        XCTAssertEqual(centered.height, 200)
-    }
-
     func testSearchPaletteMidXAlignsWithButtonCenterWhenWithinBarEdge() {
         let screenBounds = CGRect(x: 0, y: 0, width: 1000, height: 800)
         let barMaxX: CGFloat = 700

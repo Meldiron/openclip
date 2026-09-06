@@ -116,6 +116,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         macMonitor.preparePasteProbe = { [weak self] app, policy in
             self?.popupController?.preparePasteProbe(for: app, policy: policy)
         }
+        // When a user has dragged a result card aside, selecting text in that same source app
+        // should not re-open the action bar over the card being viewed. Other apps remain unsuppressed.
+        macMonitor.isSuppressedForApp = { [weak self] bundleID in
+            guard let self, let popup = self.popupController, popup.cardIsModal,
+                  let source = popup.sourceAppBundleID, let bundleID else { return false }
+            return bundleID == source
+        }
         selectionMonitor = macMonitor
         guard NSClassFromString("XCTestCase") == nil else { return }
 

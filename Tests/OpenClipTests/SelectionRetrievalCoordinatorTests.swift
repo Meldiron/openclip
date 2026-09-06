@@ -27,6 +27,25 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
         )
     }
 
+    /// An app that exposes no usable AX role for its text (custom-drawn editors/terminals):
+    /// everything the gate could key off is absent.
+    private static func opaqueTarget(containedInRoles: Set<String> = []) -> AXElementInspector.Target {
+        AXElementInspector.Target(
+            focusedApp: nil,
+            focusedElement: nil,
+            role: nil,
+            subRole: nil,
+            parentRoles: [],
+            containedInRoles: containedInRoles,
+            webArea: nil,
+            selectedText: nil,
+            selectedTextMarkerRange: nil,
+            value: nil,
+            selectedTextRange: nil,
+            bounds: nil
+        )
+    }
+
     private static func webAreaTarget(selectedText: String) -> AXElementInspector.Target {
         AXElementInspector.Target(
             focusedApp: nil,
@@ -361,6 +380,58 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
             isSelectAll: true
         )
         XCTAssertEqual(result?.text, "captured select-all text")
+    }
+
+    /// Regression (from a real log): in Zed a drag and a ⇧+arrow both retrieved fine through the
+    /// copy strategy one second apart, while ⌘A in the same element was refused — the guard
+    /// demanded a *known* text role, and editors/terminals that draw their own text expose none.
+    /// Only a recognized row container may refuse a select-all now.
+    func testSelectAllProceedsOnAppWithNoRecognizableAXRole() async {
+        let coordinator = SelectionRetrievalCoordinator(
+            inspect: { Self.opaqueTarget() },
+            copyCapture: { _ in TextResult(text: "captured select-all text") }
+        )
+        let policy = AppPolicyContext(retrievalMode: .keyboardCopy)
+        let result = await coordinator.retrieve(
+            for: AppIdentity(bundleIdentifier: "dev.zed.Zed"),
+            policy: policy,
+            cursor: .unknown,
+            isSelectAll: true
+        )
+        XCTAssertEqual(result?.text, "captured select-all text")
+    }
+
+    /// A row container nested above the focused element still refuses — the Finder/Mail case the
+    /// guard exists for reaches it through `containedInRoles`, not the focused role.
+    func testSelectAllSkippedInsideRowContainer() async {
+        let coordinator = SelectionRetrievalCoordinator(
+            inspect: { Self.opaqueTarget(containedInRoles: ["AXScrollArea", "AXOutline"]) },
+            copyCapture: { _ in TextResult(text: "should not copy rows") }
+        )
+        let policy = AppPolicyContext(retrievalMode: .keyboardCopy)
+        let result = await coordinator.retrieve(
+            for: AppIdentity(bundleIdentifier: "com.apple.finder"),
+            policy: policy,
+            cursor: .unknown,
+            isSelectAll: true
+        )
+        XCTAssertNil(result)
+    }
+
+    /// A text field being edited inside a table is text, not a row selection.
+    func testSelectAllProceedsInTextFieldInsideTable() async {
+        let coordinator = SelectionRetrievalCoordinator(
+            inspect: { Self.textFieldTarget(selectedText: "cell text", role: "AXTextField") },
+            copyCapture: { _ in TextResult(text: "cell text") }
+        )
+        let policy = AppPolicyContext(retrievalMode: .keyboardCopy)
+        let result = await coordinator.retrieve(
+            for: AppIdentity(bundleIdentifier: "com.apple.Numbers"),
+            policy: policy,
+            cursor: .unknown,
+            isSelectAll: true
+        )
+        XCTAssertEqual(result?.text, "cell text")
     }
 
     func testSelectAllDoesNotGateNonCopyModes() async {

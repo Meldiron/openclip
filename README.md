@@ -192,3 +192,8 @@ The full technical documentation lives in the [`docs/`](docs/index.md) hub:
 ## License
 
 OpenClip is released under the [MIT License](LICENSE). Copyright (c) 2026 Ganesh M and OpenClip Contributors.
+
+## Legal & Trademark Notice
+
+PopClip is a registered trademark of Nicholas Moore / Pilotmoon Software. OpenClip is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Nicholas Moore or Pilotmoon Software. All other trademarks, product names, and company names or logos cited herein are the property of their respective owners.
+

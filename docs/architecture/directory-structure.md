@@ -105,6 +105,7 @@ Sources/
 │   │   ├── SettingKey.swift                  # Strongly-typed setting keys
 │   │   └── SettingsStore.swift               # Central SettingsStore protocol + DefaultSettingsStore adapter
 │   └── Utils/
+│       ├── TextDiff.swift                    # Character-level Myers diff (input → result) behind the result card's diff view
 │       └── TextPlaceholderEngine.swift       # Dynamic text template engine ({text}, {query}, {html}, {rtf}, {matched}, {captureN}, {bundleID})
 └── OpenClip/                                 # App Target (macOS App / AppKit / SwiftUI)
     ├── AppDelegate.swift                     # Reads isAppEnabled / hasCompletedOnboarding via DefaultSettingsStore (SettingKey)
@@ -218,7 +219,7 @@ Sources/
         │   ├── PopupThemeSelector.swift      # Theme control: two rows (Classic|Glass, then System/Light/Dark); storage popupTheme + popupThemeColor
         │   ├── PopupView.swift               # SwiftUI popup bar (action bar / AI / completions / search-mode / content result-card branch + ⌘ affordance)
         │   ├── PopupWindowController.swift   # Window lifecycle + mode state machine (bar/search/content) + event monitoring
-        │   ├── ResultCardView.swift          # Native result card (back chevron + action icon/sparkles + title header, scrollable body, Copy/Paste footer) for .content mode
+        │   ├── ResultCardView.swift          # Native result card (back chevron + action icon/sparkles + title + diff toggle header, header-drag gesture, scrollable body/diff, Close/Copy/Paste footer) for .content mode
         │   ├── SearchHoverSupport.swift      # Search-palette hover-target/frame preference keys
         │   ├── SubBarPanel.swift             # Sub-action menu floating NSPanel
         │   ├── SubBarPanelController.swift   # Controller managing the sub-action bar panel lifecycle

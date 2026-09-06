@@ -16,12 +16,16 @@ public final class HotkeyManager {
     public static let shared = HotkeyManager()
     private var lastFallbackClipboard: (changeCount: Int, text: String)?
     
+    /// Gating for the ⌥⌘C trigger. Deliberately does **not** consult `SettingKey.isAppEnabled`:
+    /// that setting is "Appear Automatically" (both in Preferences and the menu bar), so it owns
+    /// the selection monitor's automatic popup, not the explicit shortcut — turning automatic
+    /// appearance off is the global form of the per-app `hotkeyOnly` rule, which has always kept
+    /// the hotkey alive. The real kill switches still apply here: Pause OpenClip
+    /// (`pauseUntilTimestamp`), the app-exclusion list, and a per-app `disabled` rule.
     internal static func triggerAllowed(
-        isAppEnabled: Bool,
         frontmost: NSRunningApplication?,
         settingsStore: SettingsStore = DefaultSettingsStore.shared
     ) -> Bool {
-        guard isAppEnabled else { return false }
         if settingsStore.get(.pauseUntilTimestamp) > Date().timeIntervalSince1970 {
             return false
         }
@@ -35,6 +39,12 @@ public final class HotkeyManager {
     }
 
     public func setup(popupController: PopupWindowController) {
+        // ⌘1…⌘9 pick a palette row. Parked until a palette opens — see PaletteRowShortcuts for why
+        // they must be global hot keys rather than key equivalents on the panel.
+        PaletteRowShortcuts.install { [weak popupController] row in
+            popupController?.runPaletteRow(row) ?? false
+        }
+
         KeyboardShortcuts.onKeyUp(for: .togglePopup) { [weak popupController] in
             Task { @MainActor in
                 // Popup already visible: if in search mode, the hotkey dismisses the popup (toggle off);
@@ -51,10 +61,8 @@ public final class HotkeyManager {
                 // No `.current` fallback: with no identifiable target app there is nothing to
                 // retrieve from, and targeting OpenClip itself is explicitly forbidden.
                 let frontmostApp = NSWorkspace.shared.frontmostApplication
-                guard Self.triggerAllowed(
-                    isAppEnabled: DefaultSettingsStore.shared.get(.isAppEnabled),
-                    frontmost: frontmostApp
-                ), let frontApp = frontmostApp else { return }
+                guard Self.triggerAllowed(frontmost: frontmostApp),
+                      let frontApp = frontmostApp else { return }
                 let policy = RuleEngine.shared.resolvePolicies(for: frontApp.bundleIdentifier ?? "")
                 let appIdentity = AppIdentity(frontApp)
 
