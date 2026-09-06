@@ -9,6 +9,9 @@ import Core
 public struct EditGroupSheet: View {
     let groupID: String
     @Environment(\.dismiss) private var dismiss
+    /// Set when the editor is shown in the Actions tab's settings popover, which closes itself
+    /// only on request; `nil` when it is presented as a sheet.
+    @Environment(\.popoverDismiss) private var popoverDismiss
     @ObservedObject private var coordinator = ActionCoordinator.shared
 
     @State private var title: String = ""
@@ -28,6 +31,14 @@ public struct EditGroupSheet: View {
         groupDef != nil
     }
 
+    private func close() {
+        if let popoverDismiss {
+            popoverDismiss()
+        } else {
+            dismiss()
+        }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -35,7 +46,7 @@ public struct EditGroupSheet: View {
                     .font(.headline)
                 Spacer()
                 Button {
-                    dismiss()
+                    close()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
@@ -146,7 +157,7 @@ public struct EditGroupSheet: View {
                 if isCustomGroup {
                     Button("Ungroup", role: .destructive) {
                         coordinator.ungroup(groupID: groupID)
-                        dismiss()
+                        close()
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(.red)
@@ -154,7 +165,7 @@ public struct EditGroupSheet: View {
 
                 Spacer()
 
-                Button("Cancel") { dismiss() }
+                Button("Cancel") { close() }
                     .keyboardShortcut(.cancelAction)
 
                 Button("Save") {
@@ -175,7 +186,7 @@ public struct EditGroupSheet: View {
                             text: nil
                         )
                     }
-                    dismiss()
+                    close()
                 }
                 .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || (isCustomGroup ? memberIDs.count < 2 : memberIDs.isEmpty))
                 .keyboardShortcut(.defaultAction)

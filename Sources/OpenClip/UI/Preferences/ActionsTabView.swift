@@ -65,6 +65,11 @@ struct ActionsTab: View {
                 EditGroupSheet(groupID: editingGroupID)
             }
         }
+        // The row settings editor is an application-defined popover: it never closes itself, so
+        // it has to go when the tab it belongs to does.
+        .onDisappear {
+            ActionSettingsPopover.shared.close()
+        }
     }
 }
 
@@ -97,8 +102,28 @@ struct ActionRowView: View {
         action.chrome.launchesAI
     }
 
-    @State private var showingConfigSheet = false
     @State private var isHovered = false
+    /// Anchor for the settings editor. It is presented as a non-transient AppKit popover
+    /// (`ActionSettingsPopover`) rather than SwiftUI's `.popover`, so toggling an action in the
+    /// list behind it — or the outline reloading its rows — leaves the editor open.
+    @State private var configAnchor = PopoverAnchorBox()
+    @ObservedObject private var settingsPopover = ActionSettingsPopover.shared
+
+    private var isConfigPopoverOpen: Bool {
+        settingsPopover.openRowID == action.id
+    }
+
+    private func openConfigPopover() {
+        settingsPopover.toggle(rowID: action.id, anchor: configAnchor) {
+            if isAITools {
+                ConfigureAISheet()
+            } else if action.chrome.rowStyle == .actionGroup {
+                EditGroupSheet(groupID: action.id)
+            } else {
+                EditActionSheet(action: action)
+            }
+        }
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -177,25 +202,17 @@ struct ActionRowView: View {
                 // Settings
                 if showsControls {
                     Button(action: {
-                        showingConfigSheet.toggle()
+                        openConfigPopover()
                     }) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 12))
-                            .foregroundColor(showingConfigSheet ? .accentColor : .secondary)
+                            .foregroundColor(isConfigPopoverOpen ? .accentColor : .secondary)
                     }
                     .buttonStyle(.plain)
                     .frame(width: 20, height: 20)
+                    .background(PopoverAnchorView(box: configAnchor))
                     .help(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
                     .accessibilityLabel(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
-                    .popover(isPresented: $showingConfigSheet, arrowEdge: .leading) {
-                        if isAITools {
-                            ConfigureAISheet()
-                        } else if action.chrome.rowStyle == .actionGroup {
-                            EditGroupSheet(groupID: action.id)
-                        } else {
-                            EditActionSheet(action: action)
-                        }
-                    }
                 } else {
                     Color.clear
                         .frame(width: 20, height: 20)

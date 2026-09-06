@@ -260,10 +260,21 @@ struct EditAIPresetSheet: View {
 @MainActor
 public struct ConfigureAISheet: View {
     @Environment(\.dismiss) private var dismiss
+    /// Set when the editor is shown in the Actions tab's settings popover, which closes itself
+    /// only on request; `nil` when it is presented as a sheet.
+    @Environment(\.popoverDismiss) private var popoverDismiss
     @State private var selectedSubTab: AISubTab
 
     public init(initialSubTab: AISubTab = .configure) {
         _selectedSubTab = State(initialValue: initialSubTab)
+    }
+
+    private func close() {
+        if let popoverDismiss {
+            popoverDismiss()
+        } else {
+            dismiss()
+        }
     }
 
     public var body: some View {
@@ -285,7 +296,7 @@ public struct ConfigureAISheet: View {
 
                 Spacer()
 
-                Button(action: { dismiss() }) {
+                Button(action: { close() }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 15))
                         .foregroundColor(.secondary)
