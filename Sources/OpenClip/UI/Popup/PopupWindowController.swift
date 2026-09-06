@@ -229,6 +229,7 @@ public class PopupWindowController {
         cardAbove = tempFrame.minY < screenBounds.minY + PopupMetrics.cardAboveThreshold
 
         modeStore.mode = initialMode
+        PaletteRowShortcuts.setActive(initialMode == .search)
         modeStore.searchResultsAbove = cardAbove
         modeStore.subBarAbove = PopupPositioner.isPlacedAbove(frame: tempFrame, releasePoint: context.cursorPosition)
         // Probed before selection retrieval by the trigger sites and resolved before this frame,
@@ -407,6 +408,7 @@ public class PopupWindowController {
             modeStore.scope = scope
         }
         modeStore.mode = .search
+        PaletteRowShortcuts.setActive(true)
         // Content-driven growth keeps the panel's bottom edge fixed (results render above the field,
         // so growth must extend upward); see PopupPanel.setFrame.
         panel.pinBottomEdgeOnResize = modeStore.searchResultsAbove
@@ -479,6 +481,7 @@ public class PopupWindowController {
         }
         modeStore.scope = nil
         modeStore.mode = .actions
+        PaletteRowShortcuts.setActive(false)
         // Return to the bar keeps the field-anchoring rule active for hover-preview/banner growth
         // (strip renders above the bar when the popup sits low), so set it explicitly rather than
         // leaving the search-mode value behind. Cleared by show()/hide() before placement.
@@ -517,6 +520,7 @@ public class PopupWindowController {
         modeStore.isProcessingAI = isStreaming
         modeStore.resultCard = ResultCardPayload(text: text, isError: isError, title: title, icon: icon, isStreaming: isStreaming)
         if modeStore.mode != .content {
+            PaletteRowShortcuts.setActive(false)
             panel?.pinBottomEdgeOnResize = modeStore.searchResultsAbove
             panel?.horizontalAnchor = .center
             modeStore.mode = .content
@@ -660,6 +664,7 @@ public class PopupWindowController {
         isRightClickInProgress = false
         modeStore.isProcessingAI = false
         modeStore.mode = .actions
+        PaletteRowShortcuts.setActive(false)
         modeStore.isSubBarActive = false
         modeStore.activeSubGroupID = nil
         modeStore.scope = nil
@@ -711,15 +716,7 @@ public class PopupWindowController {
         }
         
         localEventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .leftMouseUp, .rightMouseUp, .mouseMoved, .scrollWheel, .keyDown]) { [weak self] event in
-            guard let self else { return event }
-            // The palette's ⌘1…⌘9 have to be claimed here. AppKit runs its key-equivalent phase
-            // for the *active* application, and the popup panel is a non-activating panel of an
-            // inactive app: keystrokes reach the panel (typing works), but nothing ever asks the
-            // view tree to handle a command-modified key, so it falls off the responder chain and
-            // rings the system bell. Running that phase by hand — and swallowing the event —
-            // gives the palette its shortcut and keeps the ⌘-digit out of the source app.
-            if self.consumesPaletteShortcut(event) { return nil }
-            self.handleEvent(event)
+            self?.handleEvent(event)
             return event
         }
         
@@ -751,16 +748,23 @@ public class PopupWindowController {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
-    /// True when the event is a ⌘-digit the popup's own view tree claims (the search palette's row
-    /// shortcuts). Runs AppKit's key-equivalent phase against the panel explicitly — see the local
-    /// monitor for why it never runs on its own here. Internal for tests.
-    func consumesPaletteShortcut(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown,
-              let row = PopupSearchView.commandDigitRow(for: event),
-              let panel, panel.isVisible else { return false }
-        let consumed = panel.performKeyEquivalent(with: event)
-        Log.presentation.debug("palette shortcut: ⌘\(row, privacy: .public) consumed=\(consumed, privacy: .public)")
-        return consumed
+    /// Runs the palette row a global ⌘-digit hot key points at (1-based), returning false when
+    /// there is no palette or no such row. The row list lives in the SwiftUI palette, so this
+    /// reaches it through the catcher view mounted in the panel — the same walk `focusSearchField`
+    /// uses to find the text field. Internal for tests.
+    func runPaletteRow(_ row: Int) -> Bool {
+        guard modeStore.mode == .search, let panel, panel.isVisible,
+              let catcher = Self.findCommandDigitCatcher(in: panel.contentView) else { return false }
+        return catcher.run(row: row)
+    }
+
+    private static func findCommandDigitCatcher(in view: NSView?) -> CommandDigitCatcher.CatcherView? {
+        guard let view else { return nil }
+        if let catcher = view as? CommandDigitCatcher.CatcherView { return catcher }
+        for subview in view.subviews {
+            if let found = findCommandDigitCatcher(in: subview) { return found }
+        }
+        return nil
     }
 
     func handleEvent(_ event: NSEvent) {

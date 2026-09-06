@@ -39,6 +39,12 @@ public final class HotkeyManager {
     }
 
     public func setup(popupController: PopupWindowController) {
+        // ⌘1…⌘9 pick a palette row. Parked until a palette opens — see PaletteRowShortcuts for why
+        // they must be global hot keys rather than key equivalents on the panel.
+        PaletteRowShortcuts.install { [weak popupController] row in
+            popupController?.runPaletteRow(row) ?? false
+        }
+
         KeyboardShortcuts.onKeyUp(for: .togglePopup) { [weak popupController] in
             Task { @MainActor in
                 // Popup already visible: if in search mode, the hotkey dismisses the popup (toggle off);

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		00F0A9839339C1E8829D2A6D /* ExtensionTrustStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7065CFC746479DF29BD1525F /* ExtensionTrustStateTests.swift */; };
+		00F99CE9A59716DFB7EF8A58 /* PaletteRowShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4953987A3DEEA1E3E220311D /* PaletteRowShortcuts.swift */; };
 		016ACDECE2BC05DB5A380F65 /* CustomAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8DAACCC7C82CE7BB96D5F0D /* CustomAction.swift */; };
 		01A2A263D4D44A93E3409667 /* PopupGesturePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 842374852607342FFC468020 /* PopupGesturePolicy.swift */; };
 		02AF81963047538ADE0363F5 /* RuleEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E8EC4414979D75CE50BA12 /* RuleEngine.swift */; };
@@ -481,6 +482,7 @@
 		46F35FE3A8EA5549603E53B4 /* PermissionRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionRecoveryView.swift; sourceTree = "<group>"; };
 		47E51843D196C894F4B98910 /* SettingsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStoreTests.swift; sourceTree = "<group>"; };
 		493FF0699565029ED4F5E07A /* ActionSearchKeywords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionSearchKeywords.swift; sourceTree = "<group>"; };
+		4953987A3DEEA1E3E220311D /* PaletteRowShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaletteRowShortcuts.swift; sourceTree = "<group>"; };
 		49648502F040834635BBD8ED /* TextRetrieverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextRetrieverTests.swift; sourceTree = "<group>"; };
 		4A4F5CBA9485E0EFFF56190C /* ActionIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionIdentity.swift; sourceTree = "<group>"; };
 		4AB2405B7995F2DC5F45C474 /* AIToolsActionSubActionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIToolsActionSubActionTests.swift; sourceTree = "<group>"; };
@@ -860,6 +862,7 @@
 				6129D3E6F351430FA57265B6 /* MacSelectionMonitor.swift */,
 				1B1ED5E66BD010DECBA31B69 /* MacTextRetriever.swift */,
 				755F137CBA2F4725D29AFEE9 /* OnceResume.swift */,
+				4953987A3DEEA1E3E220311D /* PaletteRowShortcuts.swift */,
 				07948B26DD33C5F462D65FAE /* PasteAvailabilityProbe.swift */,
 				E05FFC96E0F041907FD0B7E2 /* PasteboardCopyEngine.swift */,
 				0484D51261909B820AB7747B /* PasteboardSnapshot.swift */,
@@ -1779,6 +1782,7 @@
 				EE047575D4BBDD2F0D88A15C /* OpenClipModuleLoader.swift in Sources */,
 				6B6EB24072E6FDB50051E1F5 /* OpenClipSnippetParser+DefaultFactory.swift in Sources */,
 				E349DDD966C6A17A8B49DAAA /* OpenURLAction.swift in Sources */,
+				00F99CE9A59716DFB7EF8A58 /* PaletteRowShortcuts.swift in Sources */,
 				D3C8C3EA66019AC8C95C551C /* PasteAvailabilityProbe.swift in Sources */,
 				974C03DE6A31270A924FBC49 /* PasteboardCopyEngine.swift in Sources */,
 				A95E0584A13E2D121061BE66 /* PasteboardSnapshot.swift in Sources */,

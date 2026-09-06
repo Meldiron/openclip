@@ -550,14 +550,16 @@ public struct PopupSearchView: View {
 
 // MARK: - ⌘-digit Key Equivalents
 
-/// Catches ⌘1…⌘9 for the palette. It has to be an AppKit view: a command-modified key is
-/// dispatched by `NSApplication` through `performKeyEquivalent` down the view tree and is
-/// consumed there — it never becomes a `keyDown:`, so SwiftUI's `onKeyPress` (and the focused
-/// text field) never see it, and an unhandled one ends in the system beep. `performKeyEquivalent`
-/// walks *every* view in the tree regardless of hit-testing, so a zero-size background view is
-/// enough. The handler is refreshed on each SwiftUI update so it always runs against the current
-/// result list.
-private struct CommandDigitCatcher: NSViewRepresentable {
+/// Holds the palette's ⌘1…⌘9 row runner. The handler is refreshed on every SwiftUI update, so it
+/// always runs against the current result list — which is why the runner lives in an AppKit view
+/// the controller can find (`PopupWindowController.runPaletteRow`) rather than in a closure
+/// captured out of a SwiftUI `View` struct, where the `@State` results would go stale.
+///
+/// It also answers `performKeyEquivalent`, which covers the case where OpenClip *is* the active
+/// app and AppKit runs its key-equivalent phase normally. That phase never runs for the popup's
+/// non-activating panel, which is why `PaletteRowShortcuts` exists — see that file for the
+/// routing story.
+struct CommandDigitCatcher: NSViewRepresentable {
     /// Runs the 1-based row, returning false when there is none (the event then falls through).
     let onRow: @MainActor (Int) -> Bool
 
@@ -573,6 +575,13 @@ private struct CommandDigitCatcher: NSViewRepresentable {
 
     final class CatcherView: NSView {
         var onRow: (@MainActor (Int) -> Bool)?
+
+        /// Runs a 1-based row directly, for the global ⌘-digit hot keys — those never arrive as
+        /// events in this process, so there is no key equivalent to walk.
+        @MainActor
+        func run(row: Int) -> Bool {
+            onRow?(row) ?? false
+        }
 
         override func performKeyEquivalent(with event: NSEvent) -> Bool {
             guard let row = PopupSearchView.commandDigitRow(for: event) else {

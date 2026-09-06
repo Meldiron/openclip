@@ -6,10 +6,14 @@ import Core
 
 /// ⌘1…⌘9 select a palette row outright.
 ///
-/// These tests drive `performKeyEquivalent` — the path `NSApplication` actually uses for a
-/// command-modified key. An earlier version of this suite called `panel.sendEvent`, which skips
-/// the key-equivalent dispatch and delivers straight to `keyDown:`; it passed while the shipped
-/// app only beeped, because SwiftUI's `onKeyPress` never sees a ⌘-digit.
+/// Delivery is by *global* hot key (`PaletteRowShortcuts`): a ⌘-digit is routed by macOS to the
+/// active application, and the popup is a non-activating panel of an app that is never active, so
+/// the keystroke never enters this process — no event monitor and no `performKeyEquivalent` on
+/// the panel can see it. Two earlier attempts failed exactly there, each with a test that passed:
+/// the first drove `panel.sendEvent` (which skips key-equivalent dispatch entirely), the second
+/// drove `performKeyEquivalent` by hand (which nothing calls in the real app). The tests below
+/// cover what is testable in-process — the row lookup and the parsing — and the routing itself is
+/// carried by the same Carbon mechanism as the ⌥⌘C trigger.
 @MainActor
 final class PaletteShortcutTests: XCTestCase {
     private final class Recorder {
@@ -146,10 +150,9 @@ final class PaletteShortcutTests: XCTestCase {
                       "⌘1 must be consumed inside the real palette panel — an unhandled key equivalent beeps")
     }
 
-    /// The monitor hook is what actually delivers the shortcut in the running app: AppKit never
-    /// runs its key-equivalent phase for a non-activating panel of an inactive app, so the
-    /// controller runs it by hand and swallows the event.
-    func testControllerConsumesCommandDigitsOnlyWhileThePaletteIsOpen() throws {
+    /// The global hot keys deliver a row number, not an event, so the controller has to find the
+    /// live palette and run that row — and must claim nothing when no palette is open.
+    func testControllerRunsPaletteRowsOnlyWhileThePaletteIsOpen() throws {
         TestIsolation.reset()
         defer { TestIsolation.reset() }
         ActionRegistry.shared.register(action: makeAction("mock.palette.row"))
@@ -170,29 +173,55 @@ final class PaletteShortcutTests: XCTestCase {
             appPolicy: .default
         )
 
-        func commandDigit(_ characters: String) throws -> NSEvent {
-            try XCTUnwrap(NSEvent.keyEvent(
-                with: .keyDown, location: .zero, modifierFlags: [.command],
-                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: 0,
-                context: nil, characters: characters, charactersIgnoringModifiers: characters,
-                isARepeat: false, keyCode: 18
-            ))
-        }
-
-        // Nothing on screen: the key belongs to whatever the user is working in.
-        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("1")))
+        // Nothing on screen: the keys belong to whatever the user is working in.
+        XCTAssertFalse(controller.runPaletteRow(1))
 
         controller.show(for: selection, pasteAvailable: true, initialMode: .search)
         defer { controller.hide() }
         RunLoop.current.run(until: Date().addingTimeInterval(0.6))
-        XCTAssertTrue(controller.consumesPaletteShortcut(try commandDigit("1")),
-                      "the palette must claim ⌘1 so it never reaches the source app or beeps")
-        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("a")),
-                       "only digits — ⌘A stays the source app's")
+
+        XCTAssertTrue(controller.runPaletteRow(1), "⌘1 must reach the live palette's first row")
+        XCTAssertFalse(controller.runPaletteRow(9), "a row that is not there runs nothing")
 
         controller.hide()
-        XCTAssertFalse(controller.consumesPaletteShortcut(try commandDigit("1")),
-                       "a dismissed palette claims nothing")
+        XCTAssertFalse(controller.runPaletteRow(1), "a dismissed palette runs nothing")
+    }
+
+    /// The keys are held only while a palette is up, so ⌘1…⌘9 belong to every other app the rest
+    /// of the time.
+    func testShortcutsAreHeldOnlyWhileThePaletteIsOpen() throws {
+        TestIsolation.reset()
+        defer { TestIsolation.reset() }
+        PaletteRowShortcuts.setActive(false)
+
+        let store = MemorySettingsStore()
+        let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))
+        let controller = PopupWindowController(
+            resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard),
+            settingsStore: store
+        )
+        let selection = SelectionContext(
+            text: "hello world",
+            sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"),
+            cursorPosition: CGPoint(x: 400, y: 400),
+            timestamp: Date(),
+            appPolicy: .default
+        )
+
+        controller.show(for: selection, pasteAvailable: true, initialMode: .actions)
+        defer { controller.hide() }
+        XCTAssertFalse(PaletteRowShortcuts.isActive, "the bar does not use row shortcuts")
+
+        controller.enterSearch()
+        XCTAssertTrue(PaletteRowShortcuts.isActive, "the palette takes ⌘1…⌘9 while it is open")
+
+        controller.exitSearch()
+        XCTAssertFalse(PaletteRowShortcuts.isActive, "leaving search hands them back")
+
+        controller.enterSearch()
+        XCTAssertTrue(PaletteRowShortcuts.isActive)
+        controller.hide()
+        XCTAssertFalse(PaletteRowShortcuts.isActive, "and so does dismissing the popup")
     }
 
     /// A digit past the end of the list does nothing at all — no run, no crash.
