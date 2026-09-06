@@ -147,8 +147,13 @@ already visible; the bar's command-glyph button enters search via `onEnterSearch
   store. `PopupView` branches on `modeStore.mode` in `unifiedHStack` and renders
   `PopupSearchView` — the field + result list rendered as **one surface** with the bar, results
   above or below the field by `searchResultsAbove`.
-- **Catalog & matching**: the palette searches the **full** catalog (enabled + disabled, no context
-  filtering) via `ActionCoordinator.searchCatalog` → `ActionRegistry.searchCatalog`; `ActionSearch`
+- **Catalog & matching**: the palette lists what the user can actually run — anything switched off
+  in settings is absent, matching the bar: per-action (`disabledActionIDs`), whole-package
+  (`disabledPackages`), a disabled group (its members go with it, since the palette lists members
+  rather than the row), and an AI preset whose toggle in AI → Actions is off (or with AI disabled
+  wholesale), which `AIAction.isEnabled` reports. Context gating drops the rest
+  (`isEnabled(for:)`, clipboard-fallback vs `requiresLiveSelection`). Via
+  `ActionCoordinator.searchCatalog` → `ActionRegistry.searchCatalog`; `ActionSearch`
   ranks by case-insensitive substring (prefix > contains > keyword). Up to `PopupMetrics.searchMaxRows`
   rows render (`searchMaxRows = 5`, `searchResultRowHeight = 32`, height capped by
   `PopupMetrics.popupMaxHeight`).

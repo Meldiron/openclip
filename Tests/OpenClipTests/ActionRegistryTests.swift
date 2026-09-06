@@ -175,7 +175,7 @@ final class ActionRegistryTests: XCTestCase {
     }
 
     @MainActor
-    func testSearchCatalogDropsContextuallyDisabledButKeepsSettingsDisabled() {
+    func testSearchCatalogDropsContextuallyUnableAndSettingsDisabled() {
         let store = MemorySettingsStore()
         let registry = ActionRegistry(settingsStore: store)
         let groupChrome = ActionChrome(
@@ -189,8 +189,8 @@ final class ActionRegistryTests: XCTestCase {
         let completion = MockAction(id: "builtin.completion", shouldBeEnabled: true, chrome: ActionChrome(popupBehavior: .provideCompletions))
         // Contextually unable: `isEnabled(for:)` is false, so the palette must not offer it.
         let contextuallyUnable = MockAction(id: "mock.searchdisabled", shouldBeEnabled: false)
-        // Settings-disabled (`.disabledActionIDs`): the palette is a full-catalog surface, so a
-        // row toggled off in Preferences still appears.
+        // Settings-disabled (`.disabledActionIDs`): a row toggled off in Preferences is not
+        // offered anywhere, the palette included.
         let settingsDisabled = MockAction(id: "mock.settingsdisabled", shouldBeEnabled: true)
         let normal = MockAction(id: "mock.searchnormal", shouldBeEnabled: true)
         registry.register(builtIns: [group, sub, completion, contextuallyUnable, settingsDisabled, normal])
@@ -202,14 +202,17 @@ final class ActionRegistryTests: XCTestCase {
         XCTAssertTrue(catalog.contains { $0.id == "mock.searchgroup" })
         XCTAssertTrue(catalog.contains { $0.id == "mock.searchgroup.a" })
         XCTAssertFalse(catalog.contains { $0.id == "mock.searchdisabled" })
-        XCTAssertTrue(catalog.contains { $0.id == "mock.settingsdisabled" })
+        XCTAssertFalse(catalog.contains { $0.id == "mock.settingsdisabled" },
+                       "an action switched off in Preferences must not be offered in the palette")
         XCTAssertTrue(catalog.contains { $0.id == "mock.searchnormal" })
         XCTAssertFalse(catalog.contains { $0.id == "builtin.completion" })
     }
 
     @MainActor
     func testAIChromeActionsExcludedFromBarButIncludedInSearchCatalog() {
-        let registry = ActionRegistry()
+        // Own store: `ActionRegistry()` reads the real preferences domain (the test host shares
+        // OpenClip's bundle id), so a developer disabling Copy in the app would fail this test.
+        let registry = ActionRegistry(settingsStore: MemorySettingsStore())
         let aiChrome = ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .ai)
         let aiAction = MockAction(id: "ai.preset.proofread", shouldBeEnabled: true, chrome: aiChrome)
         let normal = MockAction(id: "mock.normal", shouldBeEnabled: true)
@@ -228,7 +231,7 @@ final class ActionRegistryTests: XCTestCase {
 
     @MainActor
     func testAIToolsLauncherInBarExcludedFromPalette() {
-        let registry = ActionRegistry()
+        let registry = ActionRegistry(settingsStore: MemorySettingsStore())
         let launcher = MockAction(id: "builtin.aiTools", shouldBeEnabled: true, chrome: ActionChrome(launchesAI: true))
         let completion = MockAction(id: "builtin.completion", shouldBeEnabled: true, chrome: ActionChrome(popupBehavior: .provideCompletions))
         let normal = MockAction(id: "mock.normal", shouldBeEnabled: true)
@@ -448,6 +451,57 @@ final class ActionRegistryTests: XCTestCase {
         XCTAssertEqual(Self.palette(registry), ["ai.preset.rewrite", "ai.preset.proofread", "builtin.cut"])
     }
 
+    /// A disabled AI preset is gone from the palette too — the toggle in AI → Actions is the same
+    /// promise as the one in Preferences → Actions.
+    @MainActor
+    func testDisabledAIPresetIsNotOfferedInThePalette() {
+        let store = MemorySettingsStore()
+        let registry = ActionRegistry(settingsStore: store)
+        let enabled = MockAction(id: "ai.preset.proofread", shouldBeEnabled: true,
+                                 chrome: ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .ai))
+        // `shouldBeEnabled: false` stands in for the preset's toggle being off: the real AIAction
+        // answers `isEnabled` from AIServiceManager's preset list.
+        let disabled = MockAction(id: "ai.preset.rewrite", shouldBeEnabled: false,
+                                  chrome: ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .ai))
+        registry.register(builtIns: [enabled, disabled])
+
+        XCTAssertEqual(Self.palette(registry), ["ai.preset.proofread"])
+    }
+
+    /// A disabled group takes its sub-actions with it: the palette lists the members rather than
+    /// the group row, so the row's toggle has to reach them.
+    @MainActor
+    func testDisabledGroupHidesItsSubActionsFromThePalette() {
+        let store = MemorySettingsStore()
+        let registry = ActionRegistry(settingsStore: store)
+        let groupChrome = ActionChrome(badge: .none, rowStyle: .actionGroup, popupBehavior: .showSubActions, source: .builtin)
+        let group = MockAction(id: "mock.group", shouldBeEnabled: true, chrome: groupChrome)
+        let member = MockAction(id: "mock.group.member", shouldBeEnabled: true)
+        let other = MockAction(id: "mock.other", shouldBeEnabled: true)
+        registry.register(builtIns: [group, member, other])
+        XCTAssertEqual(Self.palette(registry), ["mock.group", "mock.group.member", "mock.other"])
+
+        store.set(.disabledActionIDs, value: Set(["mock.group"]))
+        XCTAssertEqual(Self.palette(registry), ["mock.other"])
+    }
+
+    /// A disabled extension package hides its actions from the palette as well as the bar.
+    @MainActor
+    func testDisabledPackageIsNotOfferedInThePalette() {
+        let store = MemorySettingsStore()
+        let registry = ActionRegistry(settingsStore: store)
+        let extChrome = ActionChrome(source: .extensionPkg(packageID: "com.ext.pkg"))
+        registry.register(builtIns: [
+            MockAction(id: "com.ext.pkg.action", shouldBeEnabled: true, chrome: extChrome),
+            MockAction(id: "mock.other", shouldBeEnabled: true)
+        ])
+        // The builtin leads: an un-ordered extension sorts behind it.
+        XCTAssertEqual(Self.palette(registry), ["mock.other", "com.ext.pkg.action"])
+
+        store.set(.disabledPackages, value: Set(["com.ext.pkg"]))
+        XCTAssertEqual(Self.palette(registry), ["mock.other"])
+    }
+
     @MainActor
     func testUnorderedBuiltinActionsPreserveStableInsertionOrder() {
         let store = MemorySettingsStore()
@@ -483,7 +537,7 @@ final class ActionRegistryTests: XCTestCase {
 
     @MainActor
     func testClipboardFallbackExcludesRequiresLiveSelectionActions() {
-        let registry = ActionRegistry()
+        let registry = ActionRegistry(settingsStore: MemorySettingsStore())
         let copy = MockAction(id: "builtin.copy", shouldBeEnabled: true, chrome: ActionChrome(requiresLiveSelection: true))
         let cut = MockAction(id: "builtin.cut", shouldBeEnabled: true, chrome: ActionChrome(requiresLiveSelection: true))
         let paste = MockAction(id: "builtin.paste", shouldBeEnabled: true)
