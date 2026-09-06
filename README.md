@@ -2,9 +2,9 @@
 
 <img src="./assets/app-icon.png" alt="OpenClip icon" align="center" width="96" height="96" />
 
-# OpenClip
+# OpenClip — The open-source macOS text utility
 
-**Instant actions for selected text on macOS.**
+**Official repository: [github.com/ganeshmshetty/openclip](https://github.com/ganeshmshetty/openclip)**
 
 [![macOS](https://img.shields.io/badge/macOS-14.0+-black?style=flat-square&logo=apple&logoColor=white)](https://support.apple.com/sonoma)
 [![Swift](https://img.shields.io/badge/Swift-6.0-orange?style=flat-square&logo=swift&logoColor=white)](https://www.swift.org)
