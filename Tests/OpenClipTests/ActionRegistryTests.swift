@@ -369,6 +369,58 @@ final class ActionRegistryTests: XCTestCase {
                        ["ai.preset.rewrite", "builtin.copy", "builtin.aiTools", "ai.preset.proofread"])
     }
 
+    /// Regression (user-reported): dragging AI Tools to the top in Preferences changed nothing in
+    /// the palette until OpenClip was restarted. `moveActions` published the hand-moved array
+    /// directly, and a drag moves only the grabbed row — the presets kept their pre-drag position
+    /// until some later registration re-sorted the catalog. The move must re-derive the order.
+    @MainActor
+    func testMovingTheLauncherImmediatelyMovesItsPresets() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["builtin.cut", "builtin.copy", "builtin.aiTools"])
+        let registry = ActionRegistry(settingsStore: store)
+
+        registry.register(builtIns: [
+            MockAction(id: "builtin.cut", shouldBeEnabled: true),
+            MockAction(id: "builtin.copy", shouldBeEnabled: true)
+        ])
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+
+        XCTAssertEqual(registry.actions.map(\.id),
+                       ["builtin.cut", "builtin.copy", "builtin.aiTools", "ai.preset.proofread", "ai.preset.rewrite"])
+
+        // Drag AI Tools to the top, exactly as the Preferences outline does (indices into `actions`).
+        let launcherIndex = registry.actions.firstIndex { $0.id == "builtin.aiTools" }!
+        registry.moveActions(from: IndexSet(integer: launcherIndex), to: 0)
+
+        // No re-registration, no restart: the presets follow immediately.
+        XCTAssertEqual(registry.actions.map(\.id),
+                       ["builtin.aiTools", "ai.preset.proofread", "ai.preset.rewrite", "builtin.cut", "builtin.copy"])
+        XCTAssertEqual(Self.palette(registry),
+                       ["ai.preset.proofread", "ai.preset.rewrite", "builtin.cut", "builtin.copy"])
+        // The persisted order stays free of derived rows.
+        XCTAssertEqual(store.get(.actionOrder), ["builtin.aiTools", "builtin.cut", "builtin.copy"])
+    }
+
+    /// Moving an ordinary row still lands exactly where it was dropped.
+    @MainActor
+    func testMovingAnOrdinaryActionIsAppliedImmediately() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["builtin.cut", "builtin.copy", "builtin.search"])
+        let registry = ActionRegistry(settingsStore: store)
+        registry.register(builtIns: [
+            MockAction(id: "builtin.cut", shouldBeEnabled: true),
+            MockAction(id: "builtin.copy", shouldBeEnabled: true),
+            MockAction(id: "builtin.search", shouldBeEnabled: true)
+        ])
+
+        registry.moveActions(from: IndexSet(integer: 2), to: 0)
+
+        XCTAssertEqual(registry.actions.map(\.id), ["builtin.search", "builtin.cut", "builtin.copy"])
+        XCTAssertEqual(store.get(.actionOrder), ["builtin.search", "builtin.cut", "builtin.copy"])
+    }
+
     @MainActor
     func testUnorderedBuiltinActionsPreserveStableInsertionOrder() {
         let store = MemorySettingsStore()

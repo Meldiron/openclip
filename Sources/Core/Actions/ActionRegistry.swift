@@ -182,12 +182,18 @@ public final class ActionRegistry: ObservableObject, Sendable {
         }
         
         newActions.insert(contentsOf: movingActions, at: dest)
-        actions = newActions
-        
-        let newOrder = actions
+
+        let newOrder = newActions
             .filter { !ActionIdentity.isAIPreset($0) && !($0 is CustomGroupAction) }
             .map { $0.id }
         settingsStore.set(.actionOrder, value: newOrder)
+
+        // Re-derive rather than publishing the hand-moved array: a drag moves only the rows the
+        // user grabbed, so anything whose placement is *derived* — a sub-action following its
+        // parent row (AI presets under AI Tools), a group's members trailing its header — would
+        // keep the position it had before the drag until the next registration re-sorted the
+        // catalog. That is why reordering AI Tools appeared to need a restart to take effect.
+        sortActions()
     }
     
     public func unregister(actionID: String) {
