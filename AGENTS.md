@@ -47,9 +47,9 @@ tail -f ~/Library/Logs/OpenClip/openclip.log
 The **authoritative manifest / JS-bridge spec is `Extensions/AGENTS.md`** — read it before touching anything extension-related. Don't invent manifest keys (unknown keys are ignored; unknown `type` strings reject the whole package). Extensions live in `~/.openclip/extensions`, scanned at startup (~2 s hot reload if running).
 
 ```bash
-./scripts/new_extension.sh <Name> [--type js|group|url]  # scaffold -> Extensions/raw/
-./scripts/validate_extension.sh <dir>                           # pre-flight manifest rules check
-./scripts/install_extension.sh <path>                           # validates, then copies to ~/.openclip/extensions
+./Extensions/scripts/create.sh <Name> [--type js|url|shell|applescript]  # scaffold -> Extensions/raw/
+./Extensions/scripts/validate.sh [<dir> | --all]                        # pre-flight manifest rules check
+./Extensions/scripts/install.sh <path>                                  # validates, then installs to ~/.openclip/extensions
 ```
 
 `Extensions/` is a **git submodule** (the openclip-extensions catalog); `Extensions/raw/` sits inside that submodule's working tree, so scaffolded extensions get committed there.

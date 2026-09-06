@@ -26,6 +26,8 @@ public final class ToastPanelController {
     var lastAnchorFrame: NSRect? { _lastAnchorFrame }
     /// The toast panel's mouse event pass-through state. Internal for tests.
     var panelIgnoresMouseEvents: Bool { panel.ignoresMouseEvents }
+    /// The feedback currently configured in the root hosting view. Internal for tests.
+    var rootFeedback: StatusFeedback { hostingView.rootView.feedback }
 
     private let panel: ToastPanel
     private let autoDismissNanoseconds: UInt64
@@ -125,6 +127,7 @@ public final class ToastPanelController {
         isLoading = false
         panel.ignoresMouseEvents = true
         panel.orderOut(nil)
+        hostingView.rootView = ToastView(feedback: StatusFeedback(message: "", style: .info))
     }
 
     private func startDismissal() {

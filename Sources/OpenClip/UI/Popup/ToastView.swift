@@ -149,9 +149,12 @@ private struct ToastSpinnerView: View {
         }
         .frame(width: 16 * scale, height: 16 * scale)
         .rotationEffect(.degrees(isSpinning ? 360 : 0))
-        .animation(.linear(duration: 0.8).repeatForever(autoreverses: false), value: isSpinning)
+        .animation(isSpinning ? .linear(duration: 0.8).repeatForever(autoreverses: false) : nil, value: isSpinning)
         .onAppear {
             isSpinning = true
+        }
+        .onDisappear {
+            isSpinning = false
         }
     }
 }

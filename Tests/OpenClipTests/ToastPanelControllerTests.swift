@@ -206,4 +206,19 @@ final class ToastPanelControllerTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(shortMessageWidth, cancelOnlyWidth - 2, "short loading message must reserve at least Cancel Task width")
     }
+
+    @MainActor
+    func testHideResetsHostingViewToIdle() {
+        let controller = ToastPanelController()
+        controller.showLoading(message: "Opening Apple Music…")
+        XCTAssertTrue(controller.isShowing)
+        XCTAssertTrue(controller.isLoading)
+        XCTAssertTrue(controller.rootFeedback.isLoading, "hostingView must reflect loading state while toast is showing")
+
+        controller.hide()
+        XCTAssertFalse(controller.isShowing)
+        XCTAssertFalse(controller.isLoading)
+        XCTAssertFalse(controller.rootFeedback.isLoading, "hostingView must be reset to an idle, non-loading view to stop display link animation")
+        XCTAssertEqual(controller.rootFeedback.message, "")
+    }
 }

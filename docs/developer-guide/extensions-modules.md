@@ -74,11 +74,11 @@ extension package". Absolute-path specifiers are rejected outright.
 When you need third-party libraries or TypeScript, scaffold with `--with-npm`:
 
 ```bash
-./scripts/new_extension.sh Demo --with-npm
+./Extensions/scripts/create.sh Demo --type js --with-npm
 cd Extensions/raw/Demo.openclipext
 npm install         # once
 npm run build       # after every edit to src/
-./scripts/install_extension.sh Extensions/raw/Demo.openclipext
+../../scripts/install.sh .
 ```
 
 The scaffold writes a `package.json` (esbuild + TypeScript dev deps), `tsconfig.json`,
@@ -92,9 +92,9 @@ only that one file. The contract:
 
 - `npm install` once (regenerates `node_modules`).
 - `npm run build` after **every** edit to `src/` — the bundle is stale otherwise.
-- THEN `install_extension.sh`.
+- THEN `../../scripts/install.sh .` (or from the repository root: `./Extensions/scripts/install.sh Extensions/raw/Demo.openclipext`).
 
-`validate_extension.sh` enforces this: an npm package without `dist/main.js` fails install (exit 1,
+`validate.sh` enforces this: an npm package without `dist/main.js` fails install (exit 1,
 "run 'npm install && npm run build'"), and a `dist/main.js` older than `package.json` or anything in
 `src/` produces a rebuild warning.
 
@@ -159,4 +159,4 @@ extension code):
 
 - Module resolution & containment: `Sources/OpenClip/Platform/Runtimes/OpenClipModuleLoader.swift`.
 - Module prelude/wrappers & entry dispatch: `Sources/OpenClip/Platform/Runtimes/OpenClipJSHost.swift`.
-- Scaffold/validate scripts: `scripts/new_extension.sh`, `scripts/validate_extension.sh`.
+- Scaffold/validate scripts: `Extensions/scripts/create.sh`, `Extensions/scripts/validate.sh`.
