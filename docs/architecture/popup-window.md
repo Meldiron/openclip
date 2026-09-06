@@ -158,6 +158,11 @@ already visible; the bar's command-glyph button enters search via `onEnterSearch
 - **Escape** clears the query first, then exits to the actions bar. In a **scoped** sub-action
   palette, Escape instead drops the scope (`PopupSearchView.exitSearch()` → `onExitScope`) and
   closes back to the bar.
+- **Row shortcuts**: ⌘1…⌘9 run the first nine rows outright (`PopupSearchView.runRow(at:)`), with
+  the label drawn on the row (`shortcutHint(forRow:)`); rows past the ninth have none, and a digit
+  with no matching row falls through to the field rather than being swallowed. The keys hang off
+  the palette's focused field, so they exist only while the palette is open — alongside the arrows
+  + Return, hover, and click.
 - **Placement is the same for both entry points.** A palette opened directly by the hotkey
   (`show(for:initialMode:.search)`) goes through `PopupPositioner.calculateFrame` /
   `positionPanel` exactly like the bar the mouse opens: anchored on the selection, honoring the

@@ -4,6 +4,9 @@
 // The action-search palette: a focused text field filtering the full action catalog (enabled and
 // disabled) as you type, rendered as one surface with the popup bar. Results appear above or
 // below the field depending on popup position; up to 3 rows visible, scrollable beyond that.
+// Rows are chosen with the arrows + Return, the mouse, or ⌘1…⌘9 — the first nine rows carry a
+// shortcut (shown on the row) that runs them outright. The keys live on the focused field, so
+// they exist only while the palette is open.
 import SwiftUI
 import AppKit
 import Core
@@ -174,7 +177,12 @@ public struct PopupSearchView: View {
                 .onSubmit { runSelected() }
                 .onKeyPress { press in
                     // Attached to the focused field: Escape drops the scope (or exits search),
-                    // up/down move the result selection.
+                    // up/down move the result selection, ⌘1…⌘9 run a row outright.
+                    if press.modifiers.contains(.command),
+                       let position = press.characters.first?.wholeNumberValue,
+                       (1...Self.maxShortcutRows).contains(position) {
+                        return runRow(at: position - 1) ? .handled : .ignored
+                    }
                     if press.key == .escape {
                         exitSearch()
                         return .handled
@@ -306,6 +314,13 @@ public struct PopupSearchView: View {
                         .font(.caption2)
                         .foregroundColor(PopupThemeModel.restSecondary(for: effectiveTheme))
                 }
+                if let shortcut = Self.shortcutHint(forRow: index) {
+                    Text(shortcut)
+                        .font(.caption2)
+                        .monospacedDigit()
+                        .foregroundColor(isSelected ? .white.opacity(0.85) : PopupThemeModel.restSecondary(for: effectiveTheme))
+                        .accessibilityLabel("Command \(index + 1)")
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: PopupMetrics.searchResultRowHeight)
@@ -325,6 +340,26 @@ public struct PopupSearchView: View {
         guard newIndex != selectedIndex else { return }
         scrollSelectionOnKeyboard = true
         selectedIndex = newIndex
+    }
+
+    /// How many rows carry a ⌘-digit shortcut: ⌘1…⌘9. Rows past the ninth have none — ⌘0 is not
+    /// a tenth row, it is simply unhandled.
+    static let maxShortcutRows = 9
+
+    /// The shortcut label for a row, or nil past the ninth.
+    static func shortcutHint(forRow index: Int) -> String? {
+        guard index >= 0, index < maxShortcutRows else { return nil }
+        return "⌘\(index + 1)"
+    }
+
+    /// Runs the row a ⌘-digit points at. Returns false when there is no such row, so the keystroke
+    /// falls through to the field (⌘5 in a three-result list types nothing and does nothing)
+    /// instead of being silently swallowed.
+    private func runRow(at index: Int) -> Bool {
+        guard index >= 0, index < Self.maxShortcutRows, results.indices.contains(index) else { return false }
+        selectedIndex = index
+        runSelected()
+        return true
     }
 
     private func runSelected() {
