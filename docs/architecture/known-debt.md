@@ -22,8 +22,12 @@ areas; stale debt notes are worse than none.
   `AIServiceManager.cloudAPIKey` is `@Published`, backed by `SecretStore` (account `aiCloudAPIKey`);
   do not convert it back to `@AppStorage`. A one-time migration reads the old `UserDefaults`
   `"aiCloudAPIKey"` key, then deletes it.
-- **`isAppEnabled` is consolidated** onto `SettingKey.isAppEnabled` — status bar, hotkey gate, and
-  the Preferences toggle all read/write through `DefaultSettingsStore`. Builtin store-backed actions
+- **`isAppEnabled` is consolidated** onto `SettingKey.isAppEnabled` — the status bar item and the
+  Preferences toggle read/write it through `DefaultSettingsStore`. It means **"Appear
+  Automatically"** (its label in both places): it owns the selection monitor's automatic popup and
+  nothing else. The ⌥⌘C hotkey is an explicit request and is deliberately *not* gated on it — off
+  is the global form of the per-app `hotkeyOnly` rule. `HotkeyManager.triggerAllowed` gates on the
+  real kill switches instead: Pause (`pauseUntilTimestamp`), app exclusion, per-app `disabled`. Builtin store-backed actions
   (`CalculateAction`, `CalendarAction`, `SearchAction`) accept an injected `SettingsStore` via
   `BuiltinRegistry.makeCoreBuiltins(settingsStore:)`.
 - **Menu bar visibility is store-backed and reversible.** `SettingKey.showMenuBarIcon` defaults to
