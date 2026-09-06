@@ -15,6 +15,9 @@ public struct EditActionSheet: View {
     /// reason banner and highlights the missing option rows in the unified editor (Phase 7).
     let configurationRequest: ConfigurationRequest?
     @Environment(\.dismiss) private var dismiss
+    /// Set when the editor is shown in the Actions tab's settings popover, which closes itself
+    /// only on request; `nil` when it is presented as a sheet.
+    @Environment(\.popoverDismiss) private var popoverDismiss
 
     @State private var customTitle: String = ""
     @State private var iconSymbol: String = ""
@@ -63,6 +66,14 @@ public struct EditActionSheet: View {
         ActionIdentity.isBuiltin(action)
     }
 
+    private func close() {
+        if let popoverDismiss {
+            popoverDismiss()
+        } else {
+            dismiss()
+        }
+    }
+
     /// Banner text when the sheet was opened because the action needs configuration. Falls back to a
     /// generic message when the request has no reason but does name missing options.
     private var configurationBannerText: String? {
@@ -85,7 +96,7 @@ public struct EditActionSheet: View {
                 Text("Configure Action")
                     .font(.system(size: 13, weight: .semibold))
                 Spacer()
-                Button(action: { dismiss() }) {
+                Button(action: { close() }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 15))
                         .foregroundColor(.secondary)
@@ -261,13 +272,13 @@ public struct EditActionSheet: View {
 
                 Spacer()
 
-                Button("Cancel") { dismiss() }
+                Button("Cancel") { close() }
                     .keyboardShortcut(.cancelAction)
 
                 Button("Save Changes") {
                     Task {
                         if await saveChanges() {
-                            dismiss()
+                            close()
                         }
                     }
                 }
