@@ -269,6 +269,17 @@ public final class ActionCoordinator: ObservableObject, Sendable {
         saveAndApplyGroupDefs()
     }
 
+    public func memberActionIDs(for groupID: String) -> [String] {
+        if let def = actionGroupDefs.first(where: { $0.id == groupID }) {
+            return def.memberActionIDs
+        }
+        guard let groupAction = actions.first(where: { $0.id == groupID }) else { return [] }
+        if let provider = groupAction as? any SubActionProviding {
+            return provider.subActions(in: actions).map(\.id)
+        }
+        return actions.filter { $0.id != groupID && $0.id.hasPrefix(groupID + ".") }.map(\.id)
+    }
+
     public func ungroup(groupID: String) {
         actionGroupDefs.removeAll { $0.id == groupID }
         saveAndApplyGroupDefs()

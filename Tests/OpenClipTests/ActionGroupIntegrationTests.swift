@@ -209,13 +209,153 @@ final class ActionGroupIntegrationTests: XCTestCase {
         XCTAssertTrue(available.contains(where: { $0.id == groupID }), "Group with members must appear on popup bar")
         XCTAssertTrue(available.contains(where: { $0.id == "action.1" }))
     }
+
+    func testExtensionGroupMemberResolutionAndCustomization() {
+        let customizationManager = ActionCustomizationManager(settingsStore: settingsStore)
+        let groupAction = GroupAction(
+            id: "com.pkg.leafy",
+            title: "Leafy",
+            icon: .symbol("leaf.fill"),
+            chrome: ActionChrome(
+                rowStyle: .actionGroup,
+                popupBehavior: .showSubActions,
+                source: .extensionPkg(packageID: "com.pkg.leafy")
+            )
+        )
+        let subAction1 = DummyAction(
+            id: "com.pkg.leafy.lookup",
+            title: "Look up"
+        )
+        let subAction2 = DummyAction(
+            id: "com.pkg.leafy.translate",
+            title: "Translate"
+        )
+        coordinator.register(action: groupAction)
+        coordinator.register(action: subAction1)
+        coordinator.register(action: subAction2)
+
+        // Member resolution returns sub-actions for extension groups
+        let memberIDs = coordinator.memberActionIDs(for: groupAction.id)
+        XCTAssertEqual(memberIDs, ["com.pkg.leafy.lookup", "com.pkg.leafy.translate"])
+
+        // Customization override sets custom title and icon
+        customizationManager.setOverride(for: groupAction.id, title: "My Leafy", symbol: "sparkles", text: nil)
+        let presentation = customizationManager.presented(groupAction, surface: .table)
+        XCTAssertEqual(presentation.title, "My Leafy")
+        XCTAssertEqual(presentation.icon, .symbol("sparkles"))
+    }
+
+    func testOutlineViewFrames() {
+        let outlineView = ActionsOutlineTableView(frame: NSRect(x: 0, y: 0, width: 400, height: 400))
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("ActionColumn"))
+        column.width = 380
+        outlineView.addTableColumn(column)
+        outlineView.outlineTableColumn = column
+        outlineView.style = .inset
+        outlineView.indentationPerLevel = 18
+
+        let parentView = ActionsOutlineView(
+            coordinator: coordinator,
+            customizationManager: ActionCustomizationManager(settingsStore: settingsStore),
+            selectedRowIDs: .constant([]),
+            disabledActionIDs: .constant([]),
+            disabledPackages: .constant([]),
+            onEditGroup: { _ in },
+            onCreateGroupFromSelection: { }
+        )
+        let coord = ActionsOutlineCoordinator(parentView)
+        coord.outlineView = outlineView
+        outlineView.dataSource = coord
+        outlineView.delegate = coord
+
+        let groupAction = GroupAction(
+            id: "com.pkg.leafy",
+            title: "Leafy",
+            icon: .symbol("leaf.fill"),
+            chrome: ActionChrome(
+                rowStyle: .actionGroup,
+                popupBehavior: .showSubActions,
+                source: .extensionPkg(packageID: "com.pkg.leafy")
+            )
+        )
+        let subAction1 = DummyAction(
+            id: "com.pkg.leafy.lookup",
+            title: "Look up"
+        )
+        coordinator.register(action: groupAction)
+        coordinator.register(action: subAction1)
+
+        let ca1 = DummyAction(id: "custom.action.1", title: "Custom Action 1", chrome: ActionChrome(rowStyle: .standard, popupBehavior: .perform, source: .custom))
+        let ca2 = DummyAction(id: "custom.action.2", title: "Custom Action 2", chrome: ActionChrome(rowStyle: .standard, popupBehavior: .perform, source: .custom))
+        coordinator.register(action: ca1)
+        coordinator.register(action: ca2)
+        coordinator.createGroup(title: "Custom Group", iconName: "folder", memberActionIDs: ["custom.action.1", "custom.action.2"])
+
+        let ma1 = DummyAction(id: "com.pkg.multi.a1", title: "Multi Action 1", chrome: ActionChrome(rowStyle: .standard, popupBehavior: .perform, source: .extensionPkg(packageID: "com.pkg.multi")))
+        let ma2 = DummyAction(id: "com.pkg.multi.a2", title: "Multi Action 2", chrome: ActionChrome(rowStyle: .standard, popupBehavior: .perform, source: .extensionPkg(packageID: "com.pkg.multi")))
+        coordinator.register(action: ma1)
+        coordinator.register(action: ma2)
+
+        coord.rebuildTree()
+        outlineView.reloadData()
+        for node in coord.rootNodes {
+            outlineView.expandItem(node)
+        }
+
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 600))
+        scrollView.documentView = outlineView
+        window.contentView = scrollView
+        window.layoutIfNeeded()
+        outlineView.layout()
+
+        func findSwitches(in view: NSView) -> [NSView] {
+            var results: [NSView] = []
+            if NSStringFromClass(type(of: view)).contains("Switch") {
+                results.append(view)
+            }
+            for sub in view.subviews {
+                results.append(contentsOf: findSwitches(in: sub))
+            }
+            return results
+        }
+
+        var switchFrames: [CGRect] = []
+        for r in 0..<outlineView.numberOfRows {
+            guard let rowView = outlineView.view(atColumn: 0, row: r, makeIfNecessary: true) else { continue }
+            let switches = findSwitches(in: rowView).map { $0.window?.contentView?.convert($0.bounds, from: $0) ?? .zero }
+            if let sw = switches.first {
+                switchFrames.append(sw)
+            }
+        }
+
+        XCTAssertGreaterThanOrEqual(switchFrames.count, 4, "Must find switches across multiple row types")
+        if let baseline = switchFrames.first {
+            for (idx, frame) in switchFrames.enumerated() {
+                XCTAssertEqual(frame.minX, baseline.minX, accuracy: 1.0, "Switch in row \(idx) must align horizontally with baseline (minX: \(frame.minX) vs \(baseline.minX))")
+                XCTAssertEqual(frame.maxX, baseline.maxX, accuracy: 1.0, "Switch in row \(idx) must align horizontally with baseline (maxX: \(frame.maxX) vs \(baseline.maxX))")
+            }
+        }
+    }
 }
 
 private struct DummyAction: Action, Sendable {
     let id: String
     let title: String
     var icon: ActionIcon { .symbol("star") }
-    var chrome: ActionChrome { ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .builtin) }
+    var chrome: ActionChrome { _chrome }
+    private let _chrome: ActionChrome
+
+    init(
+        id: String,
+        title: String,
+        chrome: ActionChrome = ActionChrome(badge: .none, rowStyle: .standard, popupBehavior: .perform, source: .extensionPkg(packageID: "com.pkg.leafy"))
+    ) {
+        self.id = id
+        self.title = title
+        self._chrome = chrome
+    }
+
     @MainActor func isEnabled(for context: ActionContext) -> Bool { true }
     @MainActor func perform(_ context: ActionContext) async throws -> ActionResult { .none }
 }

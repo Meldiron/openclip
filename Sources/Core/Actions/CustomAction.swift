@@ -16,7 +16,7 @@ public enum CustomActionType: Codable, Sendable, Equatable, Hashable {
     case shellScript(script: String, replaceSelection: Bool)
 }
 
-public struct CustomAction: Action, Codable, Sendable, Equatable {
+public struct CustomAction: ConfigurableAction, Codable, Sendable, Equatable {
     public let id: String
     public let title: String
     public let iconName: String
@@ -42,6 +42,10 @@ public struct CustomAction: Action, Codable, Sendable, Equatable {
     
     public var icon: ActionIcon {
         return .symbol(iconName)
+    }
+
+    public var preferenceIconName: String {
+        iconName
     }
     
     @MainActor

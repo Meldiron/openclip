@@ -8,7 +8,7 @@ import AppKit
 #endif
 import Core
 
-public struct OpenURLAction: Action {
+public struct OpenURLAction: ConfigurableAction {
     public let id = "builtin.openurl"
     public var title: String { String(localized: "Open Link") }
     public let icon = ActionIcon.symbol("link")

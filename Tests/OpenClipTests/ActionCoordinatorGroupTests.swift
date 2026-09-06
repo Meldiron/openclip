@@ -331,6 +331,58 @@ final class ActionCoordinatorGroupTests: XCTestCase {
         )
         XCTAssertEqual(coordinator.actionGroupDefs[0].memberActionIDs, ["pkg.standalone.run"])
     }
+
+    func testMemberActionIDsForCustomAndExtensionGroups() {
+        // Custom group
+        coordinator.createGroup(
+            title: "Custom Group",
+            iconName: "folder",
+            memberActionIDs: ["action.1", "action.2"]
+        )
+        let customGroupID = coordinator.actionGroupDefs[0].id
+        XCTAssertEqual(coordinator.memberActionIDs(for: customGroupID), ["action.1", "action.2"])
+
+        // Extension group with sub-actions
+        let groupParent = GroupAction(
+            id: "com.test.group",
+            title: "Test Group",
+            icon: .symbol("folder"),
+            chrome: ActionChrome(
+                rowStyle: .actionGroup,
+                popupBehavior: .showSubActions,
+                source: .extensionPkg(packageID: "com.test.group")
+            )
+        )
+        let subAction1 = DummyAction(
+            id: "com.test.group.sub1",
+            title: "Sub 1",
+            chrome: ActionChrome(
+                rowStyle: .standard,
+                popupBehavior: .perform,
+                source: .extensionPkg(packageID: "com.test.group")
+            )
+        )
+        let subAction2 = DummyAction(
+            id: "com.test.group.sub2",
+            title: "Sub 2",
+            chrome: ActionChrome(
+                rowStyle: .standard,
+                popupBehavior: .perform,
+                source: .extensionPkg(packageID: "com.test.group")
+            )
+        )
+        coordinator.register(action: groupParent)
+        coordinator.register(action: subAction1)
+        coordinator.register(action: subAction2)
+
+        XCTAssertEqual(
+            coordinator.memberActionIDs(for: "com.test.group"),
+            ["com.test.group.sub1", "com.test.group.sub2"]
+        )
+
+        // Non-existent group
+        XCTAssertEqual(coordinator.memberActionIDs(for: "unknown.group"), [])
+    }
 }
 
 private struct DummyAction: Action, Sendable {

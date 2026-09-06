@@ -7,7 +7,7 @@
 // pre-rules URL actions keep filtering identically.
 import Foundation
 
-public struct URLTemplateAction: Action, Sendable {
+public struct URLTemplateAction: ConfigurableAction, Sendable {
     public let id: String
     public let title: String
     public let icon: ActionIcon

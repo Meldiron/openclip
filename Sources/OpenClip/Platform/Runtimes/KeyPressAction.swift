@@ -9,7 +9,7 @@
 import Foundation
 import Core
 
-public struct KeyPressAction: Action {
+public struct KeyPressAction: ConfigurableAction {
     public let id: String
     public let title: String
     public let icon: ActionIcon

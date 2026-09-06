@@ -121,6 +121,7 @@ struct ActionRowView: View {
             HStack(alignment: .center, spacing: 8) {
                 // Delete: only for custom actions, extension packages, or custom groups (builtins cannot be uninstalled)
                 let canDelete: Bool = {
+                    if !showsControls { return false }
                     if action.chrome.rowStyle == .actionGroup { return true }
                     switch action.chrome.source {
                     case .custom, .extensionPkg: return true
@@ -132,7 +133,20 @@ struct ActionRowView: View {
                     Button(action: {
                         Task {
                             if action.chrome.rowStyle == .actionGroup {
-                                ActionCoordinator.shared.ungroup(groupID: action.id)
+                                if case .extensionPkg = action.chrome.source {
+                                    do {
+                                        try await ExtensionManager.shared.uninstallExtension(actionID: action.id)
+                                    } catch {
+                                        Log.extensions.error("Failed to uninstall extension '\(action.id, privacy: .public)': \(error.localizedDescription)")
+                                        let failure = NSAlert()
+                                        failure.messageText = String(localized: "Remove Failed")
+                                        failure.informativeText = String(localized: "OpenClip could not remove extension: \(error.localizedDescription)")
+                                        failure.alertStyle = .warning
+                                        failure.runModal()
+                                    }
+                                } else {
+                                    ActionCoordinator.shared.ungroup(groupID: action.id)
+                                }
                             } else {
                                 do {
                                     try await ExtensionManager.shared.uninstallExtension(actionID: action.id)
@@ -161,25 +175,30 @@ struct ActionRowView: View {
                 }
 
                 // Settings
-                Button(action: {
-                    showingConfigSheet.toggle()
-                }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 12))
-                        .foregroundColor(showingConfigSheet ? .accentColor : .secondary)
-                }
-                .buttonStyle(.plain)
-                .frame(width: 20, height: 20)
-                .help(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
-                .accessibilityLabel(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
-                .popover(isPresented: $showingConfigSheet, arrowEdge: .leading) {
-                    if isAITools {
-                        ConfigureAISheet()
-                    } else if action.chrome.rowStyle == .actionGroup {
-                        EditGroupSheet(groupID: action.id)
-                    } else {
-                        EditActionSheet(action: action)
+                if showsControls {
+                    Button(action: {
+                        showingConfigSheet.toggle()
+                    }) {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 12))
+                            .foregroundColor(showingConfigSheet ? .accentColor : .secondary)
                     }
+                    .buttonStyle(.plain)
+                    .frame(width: 20, height: 20)
+                    .help(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
+                    .accessibilityLabel(isAITools ? String(localized: "Open AI settings") : (action.chrome.rowStyle == .actionGroup ? String(localized: "Configure Group") : String(localized: "Configure Action")))
+                    .popover(isPresented: $showingConfigSheet, arrowEdge: .leading) {
+                        if isAITools {
+                            ConfigureAISheet()
+                        } else if action.chrome.rowStyle == .actionGroup {
+                            EditGroupSheet(groupID: action.id)
+                        } else {
+                            EditActionSheet(action: action)
+                        }
+                    }
+                } else {
+                    Color.clear
+                        .frame(width: 20, height: 20)
                 }
 
                 // Enable/Disable
@@ -248,14 +267,40 @@ struct PackageHeaderRowView: View {
 
             Spacer()
 
-            Toggle("", isOn: isEnabled)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .accessibilityLabel(String(localized: "Enable \(title)"))
-
-            Color.clear
+            // Right-aligned controls: delete | (settings placeholder) | enableordisable
+            HStack(alignment: .center, spacing: 8) {
+                Button(action: {
+                    Task {
+                        do {
+                            try await ExtensionManager.shared.uninstallExtension(actionID: packageID)
+                        } catch {
+                            Log.extensions.error("Failed to uninstall extension '\(packageID, privacy: .public)': \(error.localizedDescription)")
+                            let failure = NSAlert()
+                            failure.messageText = String(localized: "Remove Failed")
+                            failure.informativeText = String(localized: "OpenClip could not remove extension: \(error.localizedDescription)")
+                            failure.alertStyle = .warning
+                            failure.runModal()
+                        }
+                    }
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
                 .frame(width: 20, height: 20)
+                .help(String(localized: "Remove Package"))
+                .accessibilityLabel(String(localized: "Remove Package"))
+
+                Color.clear
+                    .frame(width: 20, height: 20)
+
+                Toggle("", isOn: isEnabled)
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .accessibilityLabel(String(localized: "Enable \(title)"))
+            }
         }
         .padding(.trailing, 10)
         .padding(.vertical, 2)

@@ -24,6 +24,10 @@ public struct EditGroupSheet: View {
         coordinator.actionGroupDefs.first(where: { $0.id == groupID })
     }
 
+    private var isCustomGroup: Bool {
+        groupDef != nil
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -88,45 +92,47 @@ public struct EditGroupSheet: View {
                                 .font(.system(size: 12))
                         }
                         Spacer()
-                        if let index = memberIDs.firstIndex(of: actionID) {
-                            HStack(spacing: 4) {
-                                Button {
-                                    guard index > 0 else { return }
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        memberIDs.swapAt(index, index - 1)
+                        if isCustomGroup {
+                            if let index = memberIDs.firstIndex(of: actionID) {
+                                HStack(spacing: 4) {
+                                    Button {
+                                        guard index > 0 else { return }
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            memberIDs.swapAt(index, index - 1)
+                                        }
+                                    } label: {
+                                        Image(systemName: "chevron.up")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(index > 0 ? .secondary : .secondary.opacity(0.25))
                                     }
-                                } label: {
-                                    Image(systemName: "chevron.up")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(index > 0 ? .secondary : .secondary.opacity(0.25))
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(index == 0)
+                                    .buttonStyle(.plain)
+                                    .disabled(index == 0)
 
-                                Button {
-                                    guard index < memberIDs.count - 1 else { return }
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        memberIDs.swapAt(index, index + 1)
+                                    Button {
+                                        guard index < memberIDs.count - 1 else { return }
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            memberIDs.swapAt(index, index + 1)
+                                        }
+                                    } label: {
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 10, weight: .semibold))
+                                            .foregroundColor(index < memberIDs.count - 1 ? .secondary : .secondary.opacity(0.25))
                                     }
-                                } label: {
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .foregroundColor(index < memberIDs.count - 1 ? .secondary : .secondary.opacity(0.25))
+                                    .buttonStyle(.plain)
+                                    .disabled(index >= memberIDs.count - 1)
                                 }
-                                .buttonStyle(.plain)
-                                .disabled(index >= memberIDs.count - 1)
+                                .padding(.trailing, 4)
                             }
-                            .padding(.trailing, 4)
-                        }
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                memberIDs.removeAll { $0 == actionID }
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    memberIDs.removeAll { $0 == actionID }
+                                }
+                            } label: {
+                                Image(systemName: "minus.circle")
+                                    .foregroundColor(.red)
                             }
-                        } label: {
-                            Image(systemName: "minus.circle")
-                                .foregroundColor(.red)
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -137,12 +143,14 @@ public struct EditGroupSheet: View {
             Divider()
 
             HStack {
-                Button("Ungroup", role: .destructive) {
-                    coordinator.ungroup(groupID: groupID)
-                    dismiss()
+                if isCustomGroup {
+                    Button("Ungroup", role: .destructive) {
+                        coordinator.ungroup(groupID: groupID)
+                        dismiss()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(.red)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(.red)
 
                 Spacer()
 
@@ -150,15 +158,26 @@ public struct EditGroupSheet: View {
                     .keyboardShortcut(.cancelAction)
 
                 Button("Save") {
-                    coordinator.updateGroup(
-                        groupID: groupID,
-                        title: title.trimmingCharacters(in: .whitespaces),
-                        iconName: iconName.isEmpty ? "folder" : iconName,
-                        memberActionIDs: memberIDs
-                    )
+                    let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+                    let effectiveIcon = iconName.isEmpty ? "folder" : iconName
+                    if isCustomGroup {
+                        coordinator.updateGroup(
+                            groupID: groupID,
+                            title: trimmedTitle,
+                            iconName: effectiveIcon,
+                            memberActionIDs: memberIDs
+                        )
+                    } else {
+                        ActionCustomizationManager.shared.setOverride(
+                            for: groupID,
+                            title: trimmedTitle.isEmpty ? nil : trimmedTitle,
+                            symbol: effectiveIcon,
+                            text: nil
+                        )
+                    }
                     dismiss()
                 }
-                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || memberIDs.count < 2)
+                .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || (isCustomGroup ? memberIDs.count < 2 : memberIDs.isEmpty))
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -169,6 +188,18 @@ public struct EditGroupSheet: View {
                 title = groupDef.title
                 iconName = groupDef.iconName.isEmpty ? "folder" : groupDef.iconName
                 memberIDs = groupDef.memberActionIDs
+            } else {
+                let override = ActionCustomizationManager.shared.override(for: groupID)
+                let groupAction = coordinator.actions.first(where: { $0.id == groupID })
+                title = override?.customTitle ?? groupAction?.title ?? ""
+                if let customSymbol = override?.customIconSymbol {
+                    iconName = customSymbol
+                } else if let configurable = groupAction as? any ConfigurableAction, !configurable.preferenceIconName.isEmpty {
+                    iconName = configurable.preferenceIconName
+                } else {
+                    iconName = "folder"
+                }
+                memberIDs = coordinator.memberActionIDs(for: groupID)
             }
         }
     }
