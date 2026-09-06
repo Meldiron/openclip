@@ -593,8 +593,15 @@ class StatusBarController: NSObject, NSMenuDelegate {
     }
 
     public func showPreferences(tab: PreferenceTab = .general) {
-        if let window = preferencesWindow, window.isVisible {
+        // Reuse the window whatever state it is in. `isVisible` is false for a
+        // miniaturised window, so testing it here built a second Preferences
+        // window every time the user minimised the first one and reopened
+        // Settings from the menu — leaving a stack of them in the Dock.
+        if let window = preferencesWindow {
             notificationCenter.post(name: .openClipSelectPreferencesTab, object: tab)
+            if window.isMiniaturized {
+                window.deminiaturize(nil)
+            }
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -606,6 +613,11 @@ class StatusBarController: NSObject, NSMenuDelegate {
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+        // Closing the window must not deallocate it while `preferencesWindow`
+        // still points at it — the reuse check above reads the window back
+        // after a close, and the default (release on close) makes that a read
+        // of a freed object.
+        window.isReleasedWhenClosed = false
         window.center()
         self.preferencesWindow = window
         window.makeKeyAndOrderFront(nil)
