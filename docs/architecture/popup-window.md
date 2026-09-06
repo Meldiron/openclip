@@ -158,6 +158,14 @@ already visible; the bar's command-glyph button enters search via `onEnterSearch
 - **Escape** clears the query first, then exits to the actions bar. In a **scoped** sub-action
   palette, Escape instead drops the scope (`PopupSearchView.exitSearch()` → `onExitScope`) and
   closes back to the bar.
+- **Placement is the same for both entry points.** A palette opened directly by the hotkey
+  (`show(for:initialMode:.search)`) goes through `PopupPositioner.calculateFrame` /
+  `positionPanel` exactly like the bar the mouse opens: anchored on the selection, honoring the
+  `popupAlignment` and `popupVerticalPosition` preferences, and clamped to the screen containing
+  the cursor. It used to be centred on the main screen, which ignored both settings and put the
+  palette nowhere near the text. Entering search *from the bar* still re-anchors to the bar
+  instead (`enterSearch(buttonLocalFrame:)` + `preSearchFrame`), so the field opens over the row
+  that was clicked.
 
 ### Scoped Sub-Action Palette
 

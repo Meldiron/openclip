@@ -416,6 +416,42 @@ final class PopupPanelTests: XCTestCase {
     }
 
     /// Returns the popup panel after show(for:) has mounted it.
+    /// The shortcut-opened palette must land where the mouse-opened bar would: anchored on the
+    /// selection, honoring the alignment and vertical-position preferences. It used to be centered
+    /// on the main screen, ignoring both.
+    @MainActor
+    func testShortcutPaletteIsAnchoredToTheSelectionNotCentered() throws {
+        guard let screen = NSScreen.main else { throw XCTSkip("no screen") }
+        let visible = screen.visibleFrame
+        let store = MemorySettingsStore()
+        store.set(.popupAlignment, value: PopupBarAlignment.left.rawValue)
+        store.set(.popupVerticalPosition, value: PopupVerticalPosition.below.rawValue)
+        let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))
+        let controller = PopupWindowController(
+            resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard),
+            settingsStore: store
+        )
+        // Well away from the screen centre, so "anchored" and "centred" cannot be confused.
+        let cursor = CGPoint(x: visible.minX + 260, y: visible.maxY - 180)
+        let context = SelectionContext(
+            text: "hello world",
+            sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"),
+            cursorPosition: cursor,
+            timestamp: Date(),
+            appPolicy: .default
+        )
+        controller.show(for: context, pasteAvailable: true, initialMode: .search)
+        defer { controller.hide() }
+        let panel = try visiblePanel()
+
+        XCTAssertEqual(panel.frame.minX, cursor.x - PopupPositioner.firstActionCenterOffset, accuracy: 1,
+                       "left alignment must anchor the palette on the selection")
+        XCTAssertLessThanOrEqual(panel.frame.maxY, cursor.y,
+                                 "vertical preference .below must place the palette under the selection")
+        XCTAssertGreaterThan(abs(panel.frame.midX - visible.midX), 100,
+                             "palette is still being centred on screen instead of anchored")
+    }
+
     private func shownPanel(for cursor: CGPoint) throws -> PopupWindowController {
         guard NSScreen.main != nil else { throw XCTSkip("no screen") }
         let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))

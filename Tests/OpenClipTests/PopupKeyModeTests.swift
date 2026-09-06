@@ -166,15 +166,28 @@ final class PopupKeyModeTests: XCTestCase {
         XCTAssertTrue(controller.isVisible, "exitSearch on a bar session must keep the popup visible")
     }
 
-    func testDirectSearchSessionCentersOnScreen() {
+    /// A palette opened straight from the hotkey is placed like the bar the mouse opens: anchored
+    /// on the selection, honoring the placement preferences. (It used to be centred on the main
+    /// screen — this test asserted that, and the centring is what the user saw as the palette
+    /// appearing nowhere near their text.)
+    func testDirectSearchSessionIsAnchoredOnTheSelection() {
+        let store = MemorySettingsStore()
+        store.set(.popupAlignment, value: PopupBarAlignment.left.rawValue)
+        store.set(.popupVerticalPosition, value: PopupVerticalPosition.below.rawValue)
         let isolatedPasteboard = NSPasteboard(name: NSPasteboard.Name("OpenClipTest-\(UUID().uuidString)"))
-        let controller = PopupWindowController(resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard))
+        let controller = PopupWindowController(
+            resultHandler: DefaultActionResultHandler(pasteboard: isolatedPasteboard),
+            settingsStore: store
+        )
         defer { controller.hide() }
 
+        let screenBounds = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 800, height: 600)
+        let cursor = CGPoint(x: screenBounds.minX + 240, y: screenBounds.maxY - 200)
         let context = SelectionContext(
             text: "test selection",
             sourceApp: AppIdentity(bundleIdentifier: "com.test", localizedName: "Test"),
-            cursorPosition: CGPoint(x: 50, y: 50),
+            cursorPosition: cursor,
             timestamp: Date(),
             appPolicy: .default
         )
@@ -186,13 +199,10 @@ final class PopupKeyModeTests: XCTestCase {
             return
         }
 
-        let screen = NSScreen.main ?? PopupPositioner.screen(containing: context.cursorPosition)
-        let screenBounds = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
-        let expectedX = screenBounds.midX - panel.frame.width / 2
-        let expectedY = screenBounds.midY - panel.frame.height / 2
-
-        XCTAssertEqual(panel.frame.origin.x, expectedX, accuracy: 1.0, "Direct search must be horizontally centered on screen")
-        XCTAssertEqual(panel.frame.origin.y, expectedY, accuracy: 1.0, "Direct search must be vertically centered on screen")
+        XCTAssertEqual(panel.frame.origin.x, cursor.x - PopupPositioner.firstActionCenterOffset, accuracy: 1.0,
+                       "left alignment must anchor the palette on the selection")
+        XCTAssertLessThanOrEqual(panel.frame.maxY, cursor.y,
+                                 "the .below vertical preference must be honored")
     }
 
     func testEnterSearchWithButtonLocalFrameDoesNotExceedBarMaxX() {

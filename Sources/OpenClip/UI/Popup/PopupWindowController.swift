@@ -212,21 +212,20 @@ public class PopupWindowController {
         let rawVertical = settingsStore.get(SettingKey.popupVerticalPosition)
         let verticalPosition = PopupVerticalPosition(rawValue: rawVertical) ?? .auto
 
-        // Pre-compute card direction from real screen position
-        let screen: NSScreen? = {
-            if initialMode == .search {
-                return NSScreen.main ?? PopupPositioner.screen(containing: context.cursorPosition)
-            }
-            return PopupPositioner.screen(containing: context.cursorPosition) ?? NSScreen.main
-        }()
+        // Pre-compute card direction from real screen position. Placement is the same for both
+        // entry points: a palette opened by the shortcut is anchored on the selection and honors
+        // the alignment / vertical-position preferences exactly like the bar the mouse opens —
+        // it used to land in the middle of the main screen, ignoring both.
+        let screen = PopupPositioner.screen(containing: context.cursorPosition) ?? NSScreen.main
         let screenBounds = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 800, height: 600)
-        let tempFrame: CGRect
-        if initialMode == .search {
-            tempFrame = PopupPositioner.centerInScreen(popupSize: CGSize(width: PopupMetrics.searchPanelWidth, height: 50), screenBounds: screenBounds)
-        } else {
-            tempFrame = PopupPositioner.calculateFrame(
-                for: context, popupSize: CGSize(width: 320, height: 50), in: screenBounds, alignment: alignment, verticalPosition: verticalPosition)
-        }
+        let probeWidth = initialMode == .search ? PopupMetrics.searchPanelWidth : 320
+        let tempFrame = PopupPositioner.calculateFrame(
+            for: context,
+            popupSize: CGSize(width: probeWidth, height: 50),
+            in: screenBounds,
+            alignment: alignment,
+            verticalPosition: verticalPosition
+        )
         cardAbove = tempFrame.minY < screenBounds.minY + PopupMetrics.cardAboveThreshold
 
         modeStore.mode = initialMode
@@ -313,15 +312,9 @@ public class PopupWindowController {
         let size = sanitizedPopupSize(panel.contentView?.fittingSize)
 
         // Compute card direction from real screen position using the actual rendered panel size.
-        let calculatedFrame: CGRect
-        if initialMode == .search {
-            calculatedFrame = PopupPositioner.centerInScreen(popupSize: size, screenBounds: screenBounds)
-            panel.setFrame(calculatedFrame, display: true)
-        } else {
-            calculatedFrame = PopupPositioner.calculateFrame(
-                for: context, popupSize: size, in: screenBounds, alignment: alignment, verticalPosition: verticalPosition)
-            positionPanel(panel, size: size, for: context, alignment: alignment, verticalPosition: verticalPosition)
-        }
+        let calculatedFrame = PopupPositioner.calculateFrame(
+            for: context, popupSize: size, in: screenBounds, alignment: alignment, verticalPosition: verticalPosition)
+        positionPanel(panel, size: size, for: context, alignment: alignment, verticalPosition: verticalPosition)
         cardAbove = calculatedFrame.minY < screenBounds.minY + PopupMetrics.cardAboveThreshold
         modeStore.searchResultsAbove = cardAbove
         modeStore.subBarAbove = PopupPositioner.isPlacedAbove(frame: calculatedFrame, releasePoint: context.cursorPosition)
