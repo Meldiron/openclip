@@ -12,6 +12,35 @@ final class MacSelectionMonitorTests: XCTestCase {
         XCTAssertFalse(MacSelectionMonitor.isSelectionTrigger(keyCode: 0x00, flags: []))
     }
 
+    /// ⌘L selects the address bar in a browser and the current line in editors — a selection
+    /// gesture like any other, and one that produced no popup at all before.
+    func testCommandLTriggersSelectionRetrieval() {
+        XCTAssertTrue(MacSelectionMonitor.isSelectionTrigger(keyCode: 0x25, flags: [.command]))
+        XCTAssertTrue(MacSelectionMonitor.isSelectAllKey(keyCode: 0x25, flags: [.command]),
+                      "⌘L selects a whole container, so it must be gated like ⌘A")
+        XCTAssertFalse(MacSelectionMonitor.isSelectionTrigger(keyCode: 0x25, flags: []))
+        XCTAssertFalse(MacSelectionMonitor.isSelectionTrigger(keyCode: 0x25, flags: [.command, .shift]))
+    }
+
+    /// ⇧+Home/End/Page Up/Page Down extend a selection exactly like ⇧+arrow, just by a bigger
+    /// stride. They carry `.function` in their modifier flags, which the normalization strips.
+    func testShiftJumpKeysExtendSelection() {
+        for keyCode: UInt16 in [0x73, 0x77, 0x74, 0x79] {   // home / end / page up / page down
+            XCTAssertTrue(MacSelectionMonitor.isSelectionTrigger(keyCode: keyCode, flags: [.shift, .function]),
+                          "⇧ + keyCode \(keyCode) must count as extending the selection")
+            XCTAssertTrue(MacSelectionMonitor.isSelectionTrigger(keyCode: keyCode, flags: [.shift, .command, .function]))
+            XCTAssertFalse(MacSelectionMonitor.isSelectionTrigger(keyCode: keyCode, flags: [.function]),
+                           "without Shift these only move the caret")
+        }
+    }
+
+    /// ⌘A is a whole-container gesture; a plain ⌘-something else is not a selection gesture at all.
+    func testOnlySelectAllAndLocationAreWholeContainerGestures() {
+        XCTAssertTrue(MacSelectionMonitor.isSelectAllKey(keyCode: 0x00, flags: [.command]))
+        XCTAssertFalse(MacSelectionMonitor.isSelectAllKey(keyCode: 0x08, flags: [.command]))   // ⌘C
+        XCTAssertFalse(MacSelectionMonitor.isSelectAllKey(keyCode: 0x00, flags: [.command, .option]))
+    }
+
     // MARK: - Keyboard anchor selection (⌘A popup placement)
 
     /// Regression: a ⌘A select-all spans the whole document, so anchoring at its top-left corner

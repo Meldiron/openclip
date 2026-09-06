@@ -48,7 +48,16 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
     
     /// Key codes (ANSI/QWERTY) that signal a selection gesture worth retrieving.
     private static let selectAllKeyCode: UInt16 = 0x00      // kVK_ANSI_A
-    private static let arrowKeyCodes: Set<UInt16> = [0x7B, 0x7C, 0x7D, 0x7E]  // left/right/down/up
+    /// ⌘L: "select the location" — the address bar in browsers, the current line in editors.
+    /// Like ⌘A it selects a whole container, so it is gated the same way downstream.
+    private static let selectLocationKeyCode: UInt16 = 0x25 // kVK_ANSI_L
+    /// Keys that extend a selection when Shift is held: the four arrows plus the page/line jumps,
+    /// which are the same gesture over a bigger stride (⇧⌥→ and ⇧End both extend a selection).
+    private static let extendKeyCodes: Set<UInt16> = [
+        0x7B, 0x7C, 0x7D, 0x7E,   // left / right / down / up
+        0x73, 0x77,               // home / end
+        0x74, 0x79                // page up / page down
+    ]
 
     /// Squared drift limits for the hold trigger (points²). A drag beyond `holdDragDisarmSquared`
     /// (5 px) disarms the pending timer outright; the timer fires only while the press is parked
@@ -139,33 +148,41 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
     
     // MARK: - Trigger detection
     
-    /// True when a key event is a selection gesture OpenClip should retrieve: ⌘A (select all) or an
-    /// arrow key with Shift held (⇧/⌥⇧/⌘⇧+arrow extend/collapse selection). Only the select-all
-    /// gesture requires the exact `.command` set; arrow gestures fire whenever `.shift` is held with
-    /// optional `.option`/`.command`, so plain typing and unrelated shortcuts still don't match.
+    /// True when a key event is a selection gesture OpenClip should retrieve: ⌘A (select all),
+    /// ⌘L (select the address bar / current line), or an extend key with Shift held (⇧/⌥⇧/⌘⇧ +
+    /// arrow, Home, End, Page Up, Page Down). The whole-container gestures require the exact
+    /// `.command` set; extend gestures fire whenever `.shift` is held with optional
+    /// `.option`/`.command`, so plain typing and unrelated shortcuts still don't match.
     /// Persistent/non-gesture flags (`.capsLock`
     /// is held in every keyDown's modifierFlags while caps lock is engaged; `.function`, `.numericPad`,
-    /// `.help` are device/hardware bits) are stripped before comparing.
+    /// `.help` are device/hardware bits) are stripped before comparing — Home/End/Page keys carry
+    /// `.function`, so that stripping is what lets them match at all.
     internal static func isSelectionTrigger(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
-        let gestureFlags = flags
-            .intersection(.deviceIndependentFlagsMask)
-            .subtracting([.capsLock, .function, .numericPad, .help])
+        let gestureFlags = normalizedGestureFlags(flags)
         if gestureFlags == .command {
-            return keyCode == selectAllKeyCode
+            return keyCode == selectAllKeyCode || keyCode == selectLocationKeyCode
         }
         if gestureFlags.contains(.shift) && gestureFlags.isSubset(of: [.shift, .option, .command]) {
-            return arrowKeyCodes.contains(keyCode)
+            return extendKeyCodes.contains(keyCode)
         }
         return false
     }
 
-    /// True only for the exact ⌘A (select-all) gesture, using the same flag normalization as
-    /// `isSelectionTrigger`.
-    private static func isSelectAllKey(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
-        let gestureFlags = flags
+    /// True for the whole-container select gestures — the exact ⌘A (select all) and ⌘L (select the
+    /// location / line). Both hand the retrieval gate the same "this selects everything in the
+    /// focused container" signal, so a row selection in Finder/Mail is refused while text is not.
+    internal static func isSelectAllKey(keyCode: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+        let gestureFlags = normalizedGestureFlags(flags)
+        guard gestureFlags == .command else { return false }
+        return keyCode == selectAllKeyCode || keyCode == selectLocationKeyCode
+    }
+
+    /// Strips the flags that are never part of a gesture: `.capsLock` rides along in every keyDown
+    /// while caps lock is engaged, and `.function`/`.numericPad`/`.help` are device bits.
+    private static func normalizedGestureFlags(_ flags: NSEvent.ModifierFlags) -> NSEvent.ModifierFlags {
+        flags
             .intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .function, .numericPad, .help])
-        return gestureFlags == .command && keyCode == selectAllKeyCode
     }
     
     // MARK: - Event handling
@@ -355,8 +372,8 @@ internal final class MacSelectionMonitor: SelectionMonitoring {
     
     /// Keyboard selection gesture: retrieve under the frontmost app resolved *after* the debounce
     /// (a ⌘A/⇧+arrow in one app followed by a switch during the debounce window must target the
-    /// now-frontmost app). `isSelectAll` marks a ⌘A select-all, which copy-based retrieval modes
-    /// reject unless the focused element is text-bearing (row selection in Finder/Mail/table views).
+    /// now-frontmost app). `isSelectAll` marks a whole-container gesture (⌘A / ⌘L), which retrieval
+    /// refuses on a row/list container (row selection in Finder/Mail/table views).
     internal func handleSelectionTrigger(isSelectAll: Bool) {
         debounceTask?.cancel()
         guard settingsStore.get(.pauseUntilTimestamp) <= Date().timeIntervalSince1970 else { return }
