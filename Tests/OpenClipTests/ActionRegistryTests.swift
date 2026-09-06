@@ -421,6 +421,33 @@ final class ActionRegistryTests: XCTestCase {
         XCTAssertEqual(store.get(.actionOrder), ["builtin.search", "builtin.cut", "builtin.copy"])
     }
 
+    /// The contract `AIActionSync` leans on when the user reorders presets: `register(action:)`
+    /// replaces an id *in place*, so a reorder has to unregister and re-register to move the
+    /// entries — and when it does, the catalog follows the new order immediately.
+    @MainActor
+    func testReRegisteringPresetsInANewOrderReordersTheCatalog() {
+        let store = MemorySettingsStore()
+        store.set(.actionOrder, value: ["builtin.aiTools", "builtin.cut"])
+        let registry = ActionRegistry(settingsStore: store)
+
+        registry.register(action: MockLauncherAction(id: "builtin.aiTools"))
+        registry.register(action: MockAction(id: "builtin.cut", shouldBeEnabled: true))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+        XCTAssertEqual(Self.palette(registry), ["ai.preset.proofread", "ai.preset.rewrite", "builtin.cut"])
+
+        // Re-registering in place must NOT move anything (titles/prompts changing is not a move).
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+        XCTAssertEqual(Self.palette(registry), ["ai.preset.proofread", "ai.preset.rewrite", "builtin.cut"])
+
+        // A real reorder: drop both, re-register in the new order.
+        registry.unregister(actionID: "ai.preset.proofread")
+        registry.unregister(actionID: "ai.preset.rewrite")
+        registry.register(action: Self.aiPreset("ai.preset.rewrite"))
+        registry.register(action: Self.aiPreset("ai.preset.proofread"))
+        XCTAssertEqual(Self.palette(registry), ["ai.preset.rewrite", "ai.preset.proofread", "builtin.cut"])
+    }
+
     @MainActor
     func testUnorderedBuiltinActionsPreserveStableInsertionOrder() {
         let store = MemorySettingsStore()

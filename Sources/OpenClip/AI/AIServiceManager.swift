@@ -113,6 +113,28 @@ public final class AIServiceManager: ObservableObject {
         return list.isEmpty ? [Self.defaultPresets[0]] : list
     }
 
+    /// Reorders the preset list, moving `id` into the slot `destinationIndex` currently holds
+    /// (drop-on-row semantics: the dragged row takes the target's place and the rest shift).
+    /// The list order *is* the order everywhere — the AI sub-bar, the search palette, and the
+    /// Preferences list all read it — so persisting the new array is the whole feature.
+    public func movePreset(id: String, to destinationIndex: Int) {
+        let reordered = Self.reordering(presets, moving: id, to: destinationIndex)
+        guard reordered.map(\.id) != presets.map(\.id) else { return }
+        presets = reordered
+    }
+
+    /// Pure reorder used by `movePreset`, split out so the ordering rules are testable without the
+    /// `@AppStorage`-backed singleton. An unknown id or an out-of-range destination leaves the
+    /// list untouched (the destination is clamped, never trapped).
+    public static func reordering(_ presets: [AIActionPreset], moving id: String, to destinationIndex: Int) -> [AIActionPreset] {
+        guard let sourceIndex = presets.firstIndex(where: { $0.id == id }) else { return presets }
+        var list = presets
+        let moved = list.remove(at: sourceIndex)
+        let clamped = max(0, min(destinationIndex, list.count))
+        list.insert(moved, at: clamped)
+        return list
+    }
+
     public func updatePreset(_ updated: AIActionPreset) {
         var current = presets
         if let idx = current.firstIndex(where: { $0.id == updated.id }) {

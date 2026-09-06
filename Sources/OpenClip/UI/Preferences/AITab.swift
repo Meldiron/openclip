@@ -17,6 +17,8 @@ public struct AITab: View {
 
     @State private var editingPreset: AIActionPreset? = nil
     @State private var showingAddPresetSheet = false
+    /// The row a dragged preset is currently hovering, so it can show where the drop will land.
+    @State private var dropTargetPresetID: String? = nil
     @State private var newTitle: String = ""
     @State private var newPrompt: String = ""
     
@@ -50,8 +52,14 @@ public struct AITab: View {
                     .foregroundColor(.accentColor)
                 }) {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(aiManager.presets) { preset in
+                        ForEach(Array(aiManager.presets.enumerated()), id: \.element.id) { index, preset in
                             HStack(alignment: .center, spacing: 12) {
+                                Image(systemName: "line.3.horizontal")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.secondary.opacity(0.7))
+                                    .help("Drag to reorder")
+                                    .accessibilityLabel("Drag to reorder")
+
                                 Toggle("", isOn: Binding(
                                     get: { preset.isEnabled },
                                     set: { newValue in
@@ -93,6 +101,28 @@ public struct AITab: View {
                                 }
                             }
                             .padding(.vertical, 4)
+                            .padding(.horizontal, 6)
+                            .contentShape(Rectangle())
+                            // The list order is the order everywhere (palette, AI sub-bar), so the
+                            // drag writes straight through to the preset list. Dropping onto a row
+                            // takes that row's slot; the rest shift down.
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(dropTargetPresetID == preset.id ? Color.accentColor.opacity(0.15) : Color.clear)
+                            )
+                            .draggable(preset.id) {
+                                Text(preset.title)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .padding(6)
+                            }
+                            .dropDestination(for: String.self) { items, _ in
+                                dropTargetPresetID = nil
+                                guard let draggedID = items.first, draggedID != preset.id else { return false }
+                                aiManager.movePreset(id: draggedID, to: index)
+                                return true
+                            } isTargeted: { targeted in
+                                dropTargetPresetID = targeted ? preset.id : (dropTargetPresetID == preset.id ? nil : dropTargetPresetID)
+                            }
 
                             if preset.id != aiManager.presets.last?.id {
                                 Divider()
