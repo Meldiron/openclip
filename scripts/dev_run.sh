@@ -10,9 +10,18 @@ echo "⚡️ Building Debug build..."
 xcodegen
 xcodebuild -scheme OpenClip -configuration Debug -destination 'platform=macOS,arch=arm64' build > /dev/null
 
-APP_PATH="$(find "$HOME/Library/Developer/Xcode/DerivedData/OpenClip-"*/Build/Products/Debug -name "OpenClip.app" | head -n 1)"
+# Ask Xcode where it just built, rather than globbing DerivedData: several OpenClip-*
+# folders can exist (the hash changes with the project path) and picking the wrong one
+# silently launches a stale binary.
+BUILT_PRODUCTS_DIR="$(xcodebuild -scheme OpenClip -configuration Debug -destination 'platform=macOS,arch=arm64' -showBuildSettings 2>/dev/null | awk -F' = ' '/[[:space:]]BUILT_PRODUCTS_DIR = /{print $2; exit}')"
+APP_PATH="$BUILT_PRODUCTS_DIR/OpenClip.app"
 
-if [ -z "$APP_PATH" ]; then
+if [ ! -d "$APP_PATH" ]; then
+  # Fall back to the most recently built bundle.
+  APP_PATH="$(ls -dt "$HOME/Library/Developer/Xcode/DerivedData/OpenClip-"*/Build/Products/Debug/OpenClip.app 2>/dev/null | head -n 1)"
+fi
+
+if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
   echo "Error: Could not find built OpenClip.app in DerivedData"
   exit 1
 fi
