@@ -381,7 +381,7 @@ public class PopupWindowController {
     /// session value exists yet — mid-session re-entry (search → bar → search, or content → search)
     /// must keep the original source app — and only when that app is not OpenClip itself.
     private func enterKeyMode() {
-        guard let panel, panel.isVisible else { return }
+        guard let panel else { return }
         captureFrontmostAppIfNeeded()
         panel.allowsKey = true
         panel.makeKeyAndOrderFront(nil)
@@ -808,7 +808,7 @@ public class PopupWindowController {
     /// reaches it through the catcher view mounted in the panel — the same walk `focusSearchField`
     /// uses to find the text field. Internal for tests.
     func runPaletteRow(_ row: Int) -> Bool {
-        guard modeStore.mode == .search, let panel, panel.isVisible,
+        guard modeStore.mode == .search, let panel,
               let catcher = Self.findCommandDigitCatcher(in: panel.contentView) else { return false }
         return catcher.run(row: row)
     }

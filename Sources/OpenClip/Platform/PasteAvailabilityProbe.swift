@@ -9,31 +9,43 @@ import ApplicationServices
 import Core
 
 public protocol PasteAvailabilityProbing: Sendable {
+    /// Determines whether the given application supports paste under the active app policy.
     func canPaste(in app: NSRunningApplication?, policy: AppPolicyContext) async -> Bool?
 }
 
 public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
-    /// This lookup reads Edit ▸ Paste for one process.
-    /// It returns true if Paste is enabled, false if Paste is disabled, and nil if the item is not found.
+    /// This lookup reads Edit ▸ Paste for one process with an optional deadline.
+    /// It returns true if Paste is enabled, false if Paste is disabled, and nil if the item is not found or times out.
     /// Production reads the live menu bar. Tests can replace this lookup.
-    typealias Lookup = @Sendable (_ pid: pid_t) -> Bool?
+    typealias Lookup = @Sendable (_ pid: pid_t, _ deadline: Date?) -> Bool?
 
     private let lookup: Lookup
     private let timeout: TimeInterval
 
+    /// Creates a probe instance using live Accessibility menu bar inspection and default timeout.
     public init() {
+        let timeout = Constants.pasteProbeTimeout
         self.init(
-            lookup: { pid in PasteAvailabilityProbe.editPasteEnabled(pid: pid) },
-            timeout: Constants.pasteProbeTimeout
+            lookupWithDeadline: { pid, deadline in
+                PasteAvailabilityProbe.editPasteEnabled(pid: pid, deadline: deadline)
+            },
+            timeout: timeout
         )
     }
 
-    /// Tests can set the lookup and the time limit. This avoids a live Accessibility tree.
-    init(lookup: @escaping Lookup, timeout: TimeInterval = Constants.pasteProbeTimeout) {
+    /// Testing initializer allowing callers to supply a pid-only lookup closure and custom timeout.
+    init(lookup: @escaping @Sendable (pid_t) -> Bool?, timeout: TimeInterval = Constants.pasteProbeTimeout) {
+        self.lookup = { pid, _ in lookup(pid) }
+        self.timeout = timeout
+    }
+
+    /// Testing initializer allowing callers to supply a deadline-aware lookup closure and custom timeout.
+    init(lookupWithDeadline lookup: @escaping Lookup, timeout: TimeInterval = Constants.pasteProbeTimeout) {
         self.lookup = lookup
         self.timeout = timeout
     }
 
+    /// Determines whether the target application can paste, consulting policy overrides first.
     @MainActor
     public func canPaste(in app: NSRunningApplication?, policy: AppPolicyContext) async -> Bool? {
         // App rules can allow or deny paste. Then the probe does not walk the menu bar.
@@ -57,11 +69,15 @@ public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
     /// Same design as `SelectionRetrievalCoordinator.InspectConcurrencyGate`.
     private actor ProbeConcurrencyGate {
         private var inFlight = 0
+
+        /// Attempts to acquire an execution permit if under the concurrency limit.
         func tryAcquire(limit: Int) -> Bool {
             guard inFlight < limit else { return false }
             inFlight += 1
             return true
         }
+
+        /// Releases an acquired concurrency permit.
         func release() {
             inFlight -= 1
         }
@@ -78,6 +94,7 @@ public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
         }
         let lookup = self.lookup
         let timeoutSeconds = self.timeout
+        let deadline = Date().addingTimeInterval(timeoutSeconds)
         return await withCheckedContinuation { (continuation: CheckedContinuation<Bool?, Never>) in
             let resume = OnceResume<Bool?>()
             let watchdog = TaskBox()
@@ -91,7 +108,7 @@ public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
             })
 
             PasteAvailabilityProbe.axProbeQueue.async {
-                let enabled = lookup(pid)
+                let enabled = lookup(pid, deadline)
                 if resume.resume(continuation, with: enabled) {
                     watchdog.cancel()
                     Task.detached { await PasteAvailabilityProbe.probeGate.release() }
@@ -102,9 +119,10 @@ public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
         }
     }
 
-    private nonisolated static func editPasteEnabled(pid: pid_t) -> Bool? {
+    /// Performs the live Accessibility menu bar search for Edit ▸ Paste up to `deadline`.
+    private nonisolated static func editPasteEnabled(pid: pid_t, deadline: Date? = nil) -> Bool? {
         let appElement = AXUIElementCreateApplication(pid)
-        guard let pasteItem = AXMenuNavigator.findMenuItem(.paste, in: appElement, requireEnabled: false) else {
+        guard let pasteItem = AXMenuNavigator.findMenuItem(.paste, in: appElement, requireEnabled: false, deadline: deadline) else {
             return nil
         }
         return enabledState(of: pasteItem)
@@ -116,6 +134,7 @@ public struct PasteAvailabilityProbe: PasteAvailabilityProbing {
         AXMenuNavigator.matches(.paste, title: title, identifier: nil, cmdChar: cmdChar, cmdModifiers: cmdCharModifiers)
     }
 
+    /// Inspects the `kAXEnabledAttribute` of the given menu element.
     private nonisolated static func enabledState(of element: AXUIElement) -> Bool? {
         // Set the AX message time limit on this object. The limit applies to one AXUIElement.
         AXUIElementSetMessagingTimeout(element, Float(Constants.axReadTimeout))

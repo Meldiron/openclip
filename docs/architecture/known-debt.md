@@ -240,12 +240,11 @@ areas; stale debt notes are worse than none.
   (2) an async-mode
   JS script with a top-level *synchronous* infinite loop blocks inside `evaluateScript`, which the
   watchdog pump loop never reaches (the sync-evaluation gate covers only `isAsync == false`);
-  (3) `PasteAvailabilityProbe.editPasteEnabled` walks the full menu bar. There is no total time limit.
-  Each AX message has a limit of `axReadTimeout`. A slow but live app can keep one walk
-  in progress for minutes after the caller stops at `pasteProbeTimeout`. The gate releases its permit
-  at the time limit, so later probes are not delayed. Up to
-  `Constants.pasteProbeMaxConcurrent` abandoned workers can occupy queue threads. Deferred fix:
-  pass a time limit through `AXMenuNavigator.findMenuItem` so the walk stops.
+  (3) `PasteAvailabilityProbe.editPasteEnabled` walks the menu bar up to an aggregate deadline
+  passed through `AXMenuNavigator.findMenuItem`. Each AX message also has a per-call limit of
+  `axReadTimeout`. An abandoned walk stops at `pasteProbeTimeout` (or upon completing an in-flight message),
+  so workers do not linger for minutes on the queue. The counting gate releases its permit at the deadline
+  (issue #37) so subsequent probes are never delayed.
   These paths do not block the main actor.
 - **AX inspect is deadline-capped.** `SelectionRetrievalCoordinator.inspectWithWatchdog` races
   `AXElementInspector.inspect` against

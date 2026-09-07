@@ -40,33 +40,37 @@ public struct AXMenuNavigator {
     }
 
     /// Finds the requested menu item in `app`'s menu bar, optionally requiring it to be enabled.
-    /// Sets a messaging timeout on `app` before the menu-bar read.
+    /// Sets a messaging timeout on `app` before the menu-bar read, and bounds traversal against `deadline`.
     ///
     /// - Parameters:
     ///   - command: The menu command to locate.
     ///   - app: The application AXUIElement (never the system-wide element; menu items are children
     ///     of the application element).
     ///   - requireEnabled: When true, only an enabled item matches.
+    ///   - deadline: Optional absolute deadline after which menu traversal aborts and returns nil.
     /// - Returns: The matching menu item, or nil.
     public static func findMenuItem(
         _ command: MenuCommand,
         in app: AXUIElement?,
-        requireEnabled: Bool = false
+        requireEnabled: Bool = false,
+        deadline: Date? = nil
     ) -> AXUIElement? {
+        if let deadline, Date() >= deadline { return nil }
         guard let app else { return nil }
         AXUIElementSetMessagingTimeout(app, Float(Constants.axReadTimeout))
-        guard let menuBar = attribute(app, kAXMenuBarAttribute).flatMap(axElement),
-              let topLevelMenus = children(menuBar) else { return nil }
+        guard let menuBar = attribute(app, kAXMenuBarAttribute, deadline: deadline).flatMap(axElement),
+              let topLevelMenus = children(menuBar, deadline: deadline) else { return nil }
 
         // The Edit menu is standardly the 4th top-level menu (index 3). Search it first, then search remaining menus.
         let editIndex = 3
         if topLevelMenus.indices.contains(editIndex),
-           let match = findMenuItem(command, in: topLevelMenus[editIndex], requireEnabled: requireEnabled) {
+           let match = findMenuItem(command, in: topLevelMenus[editIndex], requireEnabled: requireEnabled, deadline: deadline) {
             return match
         }
 
         for (index, menu) in topLevelMenus.enumerated() where index != editIndex {
-            if let match = findMenuItem(command, in: menu, requireEnabled: requireEnabled) {
+            if let deadline, Date() >= deadline { return nil }
+            if let match = findMenuItem(command, in: menu, requireEnabled: requireEnabled, deadline: deadline) {
                 return match
             }
         }
@@ -75,10 +79,10 @@ public struct AXMenuNavigator {
     }
 
     /// Presses the requested menu item if it can be found and is enabled.
-    /// Sets a messaging timeout on the menu item before AXPress.
+    /// Sets a messaging timeout on the menu item before AXPress, and bounds search against `deadline`.
     @discardableResult
-    public static func press(_ command: MenuCommand, in app: AXUIElement?) -> Bool {
-        guard let item = findMenuItem(command, in: app, requireEnabled: true) else { return false }
+    public static func press(_ command: MenuCommand, in app: AXUIElement?, deadline: Date? = nil) -> Bool {
+        guard let item = findMenuItem(command, in: app, requireEnabled: true, deadline: deadline) else { return false }
         AXUIElementSetMessagingTimeout(item, Float(Constants.axReadTimeout))
         AXUIElementPerformAction(item, kAXPressAction as CFString)
         return true
@@ -107,24 +111,30 @@ public struct AXMenuNavigator {
 
     private static let maxDepth = 8
 
+    /// Recursively searches for the requested menu command starting at `element`.
+    /// Traversal is bounded by `maxDepth` and stops early if `deadline` is exceeded.
     private static func findMenuItem(
         _ command: MenuCommand,
         in element: AXUIElement,
         requireEnabled: Bool,
-        depth: Int = 0
+        depth: Int = 0,
+        deadline: Date? = nil
     ) -> AXUIElement? {
+        if let deadline, Date() >= deadline { return nil }
         guard depth <= maxDepth else { return nil }
 
-        if isMatch(command, element: element, requireEnabled: requireEnabled) {
+        if isMatch(command, element: element, requireEnabled: requireEnabled, deadline: deadline) {
             return element
         }
 
-        for child in children(element) ?? [] {
+        for child in children(element, deadline: deadline) ?? [] {
+            if let deadline, Date() >= deadline { return nil }
             if let match = findMenuItem(
                 command,
                 in: child,
                 requireEnabled: requireEnabled,
-                depth: depth + 1
+                depth: depth + 1,
+                deadline: deadline
             ) {
                 return match
             }
@@ -133,54 +143,64 @@ public struct AXMenuNavigator {
         return nil
     }
 
+    /// Evaluates whether the AX element matches the requested menu command and enablement criteria.
     private static func isMatch(
         _ command: MenuCommand,
         element: AXUIElement,
-        requireEnabled: Bool
+        requireEnabled: Bool,
+        deadline: Date? = nil
     ) -> Bool {
         guard matches(
             command,
-            title: title(element),
-            identifier: identifier(element),
-            cmdChar: cmdChar(element),
-            cmdModifiers: cmdModifiers(element)
+            title: title(element, deadline: deadline),
+            identifier: identifier(element, deadline: deadline),
+            cmdChar: cmdChar(element, deadline: deadline),
+            cmdModifiers: cmdModifiers(element, deadline: deadline)
         ) else { return false }
 
         if requireEnabled {
-            guard enabled(element) == true else { return false }
+            guard enabled(element, deadline: deadline) == true else { return false }
         }
         return true
     }
 
     // MARK: - AX attribute helpers
 
-    private static func children(_ element: AXUIElement) -> [AXUIElement]? {
-        guard let value = attribute(element, kAXChildrenAttribute) else { return nil }
+    /// Retrieves the child AX elements of the given element up to `deadline`.
+    private static func children(_ element: AXUIElement, deadline: Date? = nil) -> [AXUIElement]? {
+        guard let value = attribute(element, kAXChildrenAttribute, deadline: deadline) else { return nil }
         return value as? [AXUIElement]
     }
 
-    private static func title(_ element: AXUIElement) -> String? {
-        attribute(element, kAXTitleAttribute) as? String
+    /// Retrieves the `kAXTitleAttribute` string of the given element up to `deadline`.
+    private static func title(_ element: AXUIElement, deadline: Date? = nil) -> String? {
+        attribute(element, kAXTitleAttribute, deadline: deadline) as? String
     }
 
-    private static func identifier(_ element: AXUIElement) -> String? {
-        attribute(element, kAXIdentifierAttribute) as? String
+    /// Retrieves the `kAXIdentifierAttribute` string of the given element up to `deadline`.
+    private static func identifier(_ element: AXUIElement, deadline: Date? = nil) -> String? {
+        attribute(element, kAXIdentifierAttribute, deadline: deadline) as? String
     }
 
-    private static func cmdChar(_ element: AXUIElement) -> String? {
-        attribute(element, kAXMenuItemCmdCharAttribute) as? String
+    /// Retrieves the `kAXMenuItemCmdCharAttribute` string of the given element up to `deadline`.
+    private static func cmdChar(_ element: AXUIElement, deadline: Date? = nil) -> String? {
+        attribute(element, kAXMenuItemCmdCharAttribute, deadline: deadline) as? String
     }
 
-    private static func cmdModifiers(_ element: AXUIElement) -> UInt? {
-        guard let value = attribute(element, kAXMenuItemCmdModifiersAttribute) else { return nil }
+    /// Retrieves the `kAXMenuItemCmdModifiersAttribute` mask of the given element up to `deadline`.
+    private static func cmdModifiers(_ element: AXUIElement, deadline: Date? = nil) -> UInt? {
+        guard let value = attribute(element, kAXMenuItemCmdModifiersAttribute, deadline: deadline) else { return nil }
         return (value as? NSNumber)?.uintValue
     }
 
-    private static func enabled(_ element: AXUIElement) -> Bool? {
-        attribute(element, kAXEnabledAttribute) as? Bool
+    /// Retrieves the `kAXEnabledAttribute` boolean of the given element up to `deadline`.
+    private static func enabled(_ element: AXUIElement, deadline: Date? = nil) -> Bool? {
+        attribute(element, kAXEnabledAttribute, deadline: deadline) as? Bool
     }
 
-    private static func attribute(_ element: AXUIElement, _ attribute: String) -> CFTypeRef? {
+    /// Reads an AX attribute value with per-call messaging timeout and aggregate deadline enforcement.
+    private static func attribute(_ element: AXUIElement, _ attribute: String, deadline: Date? = nil) -> CFTypeRef? {
+        if let deadline, Date() >= deadline { return nil }
         AXUIElementSetMessagingTimeout(element, Float(Constants.axReadTimeout))
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
@@ -189,6 +209,7 @@ public struct AXMenuNavigator {
         return value
     }
 
+    /// Casts an untyped CoreFoundation attribute value to `AXUIElement` if applicable.
     private static func axElement(_ value: CFTypeRef?) -> AXUIElement? {
         guard let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return nil }
         let element: AXUIElement = value as! AXUIElement

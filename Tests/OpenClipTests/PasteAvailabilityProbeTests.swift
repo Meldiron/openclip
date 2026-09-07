@@ -53,6 +53,31 @@ final class PasteAvailabilityProbeTests: XCTestCase {
         XCTAssertFalse(PasteAvailabilityProbe.isPaste(
             title: nil, cmdChar: "V", cmdCharModifiers: UInt(AXMenuItemModifiers.noCommand.rawValue)))
     }
+
+    func testFindMenuItemRespectsExpiredDeadline() {
+        let expiredDeadline = Date().addingTimeInterval(-1.0)
+        let result = AXMenuNavigator.findMenuItem(.paste, in: nil, deadline: expiredDeadline)
+        XCTAssertNil(result, "An expired deadline must immediately yield nil without searching")
+    }
+
+    func testDeadlineAwareLookupReceivesDeadline() async {
+        let deadlineReceived = expectation(description: "deadline received by lookup")
+        let probe = PasteAvailabilityProbe(
+            lookupWithDeadline: { pid, deadline in
+                XCTAssertEqual(pid, 42)
+                XCTAssertNotNil(deadline)
+                if let deadline {
+                    XCTAssertGreaterThan(deadline, Date())
+                }
+                deadlineReceived.fulfill()
+                return true
+            },
+            timeout: 0.5
+        )
+        let result = await probe.probePaste(pid: 42)
+        XCTAssertEqual(result, true)
+        await fulfillment(of: [deadlineReceived], timeout: 1.0)
+    }
 }
 
 /// This class covers issue #37. A blocked lookup must not stop later probes.
