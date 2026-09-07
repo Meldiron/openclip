@@ -21,6 +21,9 @@ struct ActionAppearanceFields: View {
     /// replacement; nil when the baseline is already fully described by `iconSymbol`.
     let baseIcon: ActionIcon?
     @Binding var displayMode: Int // 0 = Show Icon, 1 = Show Text
+    /// Symbol Show Icon mode resolves to for text-glyph builtins (Copy/Cut/Paste) while no
+    /// replacement has been picked; nil for actions whose icon is already symbol-representable.
+    var textGlyphFallbackSymbol: String? = nil
 
     @State private var showingIconPicker = false
     @State private var isIconHovered = false
@@ -33,26 +36,32 @@ struct ActionAppearanceFields: View {
             displayTextFallback: displayTextFallback,
             iconSymbol: iconSymbol,
             initialIconSymbol: initialIconSymbol,
-            baseIcon: baseIcon
+            baseIcon: baseIcon,
+            textGlyphFallbackSymbol: textGlyphFallbackSymbol
         )
     }
 
     /// Preview resolution, mirroring `ActionCustomizationManager.popupIcon`: Show-Text mode swaps the
     /// icon slot for the effective display text (custom title, else the native one); Show-Icon mode
-    /// keeps the real icon until a genuinely user-picked replacement symbol exists.
+    /// keeps the real icon until a genuinely user-picked replacement symbol exists, falling back to
+    /// `textGlyphFallbackSymbol` for text-glyph builtins.
     static func resolvedPreviewIcon(
         displayMode: Int,
         title: String,
         displayTextFallback: String,
         iconSymbol: String,
         initialIconSymbol: String,
-        baseIcon: ActionIcon?
+        baseIcon: ActionIcon?,
+        textGlyphFallbackSymbol: String? = nil
     ) -> ActionIcon {
         if displayMode == 1 {
             let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
             return .text(trimmed.isEmpty ? displayTextFallback : trimmed)
         }
         if iconSymbol.isEmpty {
+            if case .text? = baseIcon, let fallback = textGlyphFallbackSymbol {
+                return .symbol(fallback)
+            }
             return baseIcon ?? .symbol(Constants.defaultIconSymbol)
         }
         if iconSymbol == initialIconSymbol, let base = baseIcon {
@@ -147,3 +156,40 @@ struct ActionAppearanceFields: View {
         .padding(14)
     }
 }
+
+// MARK: - Inset Group Card Container
+
+struct InsetGroupCard<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Icon Picker Popover
+
+@MainActor
+struct IconPickerPopover: View {
+    @Binding var selectedIcon: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        IconPickerView(selectedSymbol: $selectedIcon) {
+            dismiss()
+        }
+        .padding(12)
+        .frame(width: 360, height: 320)
+    }
+}
+

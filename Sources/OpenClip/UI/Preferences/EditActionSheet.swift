@@ -38,9 +38,11 @@ public struct EditActionSheet: View {
     // field state below — so the segment highlight stays stable while the user edits text (a
     // CustomActionType selection would embed the live string and unhighlight on every keystroke).
     private enum EditKind: Hashable {
-        case webSearch
+        case openURL
         case textSnippet
         case shellScript
+
+        static let webSearch: EditKind = .openURL
     }
     @State private var editKind: EditKind = .textSnippet
     @State private var customURLTemplate: String = "https://www.google.com/search?q={text}"
@@ -86,7 +88,8 @@ public struct EditActionSheet: View {
     }
 
     private var saveDisabled: Bool {
-        !isBuiltin && manifestState == nil
+        if action is CustomAction { return false }
+        return !isBuiltin && manifestState == nil
     }
 
     public var body: some View {
@@ -141,7 +144,8 @@ public struct EditActionSheet: View {
                         iconSymbol: $iconSymbol,
                         initialIconSymbol: initialIconSymbol,
                         baseIcon: baseIconState,
-                        displayMode: $displayMode
+                        displayMode: $displayMode,
+                        textGlyphFallbackSymbol: Self.iconModeFallbackSymbol(for: action)
                     )
                 }
                 .disabled(manifestMissing)
@@ -179,7 +183,7 @@ public struct EditActionSheet: View {
                                         .foregroundColor(.primary)
                                     Spacer()
                                     Picker("Type", selection: $editKind) {
-                                        Text("Web Search").tag(EditKind.webSearch)
+                                        Text("Open URL").tag(EditKind.openURL)
                                         Text("Text Snippet").tag(EditKind.textSnippet)
                                         Text("Shell Script").tag(EditKind.shellScript)
                                     }
@@ -195,7 +199,7 @@ public struct EditActionSheet: View {
 
                                 Group {
                                     switch editKind {
-                                    case .webSearch:
+                                    case .openURL:
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text("URL Template").font(.caption).foregroundColor(.secondary)
                                             TextField("https://example.com/search?q={text}", text: $customURLTemplate)
@@ -320,22 +324,19 @@ public struct EditActionSheet: View {
         customTitle = override?.customTitle ?? action.title
         initialStoredSymbol = Self.sanitizedStoredSymbol(override?.customIconSymbol, actionIcon: action.icon)
         seedBaseline(from: ActionCustomizationManager.shared.popupIcon(for: action))
-
-        if override?.customIconText != nil {
-            displayMode = 1
-        } else if case .text = action.icon {
-            displayMode = 1
-        } else {
-            displayMode = 0
+        displayMode = Self.initialDisplayMode(override: override, actionIcon: action.icon)
+        if let customAction = action as? CustomAction {
+            manifestState = nil
+            logicEditable = true
+            manifestMissing = false
+            loadCustomType(from: customAction)
+            return
         }
 
         if isBuiltin {
             manifestState = nil
             logicEditable = false
             manifestMissing = false
-            if let customAction = action as? CustomAction {
-                loadCustomType(from: customAction)
-            }
             return
         }
 
@@ -362,7 +363,7 @@ public struct EditActionSheet: View {
         switch meta.kind {
         case .url, .webSearch:
             customURLTemplate = meta.url ?? ""
-            editKind = .webSearch
+            editKind = .openURL
             logicEditable = true
         case .textSnippet:
             customSnippetTemplate = meta.scriptCode ?? ""
@@ -393,8 +394,8 @@ public struct EditActionSheet: View {
 
     private func loadCustomType(from customAction: CustomAction) {
         switch customAction.type {
-        case .webSearch(let url):
-            editKind = .webSearch
+        case .openURL(let url):
+            editKind = .openURL
             customURLTemplate = url
         case .textSnippet(let snippet):
             editKind = .textSnippet
@@ -429,18 +430,51 @@ public struct EditActionSheet: View {
         } else {
             saveAppearanceOverride()
         }
+        if let customAction = action as? CustomAction {
+            return saveCustomActionChanges(customAction)
+        }
         if isBuiltin {
             return true
         }
         return await saveManifestChanges()
     }
 
+    private func saveCustomActionChanges(_ customAction: CustomAction) -> Bool {
+        let finalTitle = customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = finalTitle.isEmpty ? customAction.title : finalTitle
+        let finalIcon = (iconSymbol != initialIconSymbol && !iconSymbol.isEmpty) ? iconSymbol : customAction.iconName
+
+        let newType: CustomActionType
+        switch editKind {
+        case .openURL:
+            newType = .openURL(urlTemplate: customURLTemplate)
+        case .textSnippet:
+            newType = .textSnippet(template: customSnippetTemplate)
+        case .shellScript:
+            newType = .shellScript(script: customShellScript, replaceSelection: replaceSelection)
+        }
+
+        let updated = CustomAction(
+            id: customAction.id,
+            title: resolvedTitle,
+            iconName: finalIcon,
+            type: newType,
+            chrome: customAction.chrome,
+            rules: customAction.rules
+        )
+
+        ActionCoordinator.shared.saveCustomAction(updated)
+        return true
+    }
+
     private func saveAppearanceOverride() {
         let titleOverride: String? = (customTitle.isEmpty || customTitle == action.title) ? nil : customTitle
-        let symbolOverride = Self.resolvedSymbolOverride(
+        let symbolOverride = Self.resolvedIconModeSymbolOverride(
+            displayMode: displayMode,
             current: iconSymbol,
             initial: initialIconSymbol,
-            stored: initialStoredSymbol
+            stored: initialStoredSymbol,
+            action: action
         )
         let textOverride: String? = (displayMode == 1) ? (customTitle.isEmpty ? action.title : customTitle) : nil
 
@@ -452,6 +486,24 @@ public struct EditActionSheet: View {
         )
     }
 
+    /// The display mode the editor opens in. Show Text wins when a text override is stored (it
+    /// outranks a symbol in `popupIcon`); a stored symbol override means the user already switched
+    /// to Show Icon, which must stick even for builtins whose own icon is a text glyph (Copy/Cut/
+    /// Paste) — those otherwise reopen as Show Text and make the saved switch look lost.
+    static func initialDisplayMode(override: ActionOverride?, actionIcon: ActionIcon) -> Int {
+        if override?.customIconText != nil { return 1 }
+        if override?.customIconSymbol != nil { return 0 }
+        if case .text = actionIcon { return 1 }
+        return 0
+    }
+
+    /// The symbol Show Icon mode resolves to for builtin actions whose own icon is a text glyph
+    /// (Copy/Cut/Paste), driving the honest icon-mode preview before any replacement is picked.
+    static func iconModeFallbackSymbol(for action: any Action) -> String? {
+        guard case .text = action.icon, ActionIdentity.isBuiltin(action) else { return nil }
+        return (action as? any ConfigurableAction)?.preferenceIconName
+    }
+
     // MARK: - Appearance save decisions (pure, unit-tested)
 
     /// Symbol value to persist for the icon field. A genuinely user-picked change wins; an untouched
@@ -460,6 +512,24 @@ public struct EditActionSheet: View {
     static func resolvedSymbolOverride(current: String, initial: String, stored: String?) -> String? {
         guard current.isEmpty || current == initial else { return current }
         return stored
+    }
+
+    /// Symbol override to persist for the chosen display mode. Show Icon mode needs a resolvable
+    /// symbol: for builtin actions whose own icon is a text glyph (Copy/Cut/Paste) the builtin's
+    /// preference symbol is persisted — otherwise `ActionCustomizationManager.popupIcon` keeps
+    /// resolving the text glyph and the switch to icon mode never takes effect. A field-level pick
+    /// or a previously stored symbol wins. Show Text mode only round-trips the icon field.
+    static func resolvedIconModeSymbolOverride(
+        displayMode: Int,
+        current: String,
+        initial: String,
+        stored: String?,
+        action: any Action
+    ) -> String? {
+        let fromField = resolvedSymbolOverride(current: current, initial: initial, stored: stored)
+        if let fromField { return fromField }
+        guard displayMode == 0 else { return nil }
+        return iconModeFallbackSymbol(for: action)
     }
 
     /// Overrides written before the icon-clobber fix stored a literal "star" placeholder for every
@@ -496,7 +566,7 @@ public struct EditActionSheet: View {
         var newScriptCode = meta.scriptCode
         if logicEditable {
             switch editKind {
-            case .webSearch:
+            case .openURL:
                 newURL = customURLTemplate
                 newType = "url"
                 newScriptCode = nil
@@ -568,25 +638,5 @@ public struct EditActionSheet: View {
         // revoked or never-enabled package keeps its trust state (an edit save is not consent).
         await ExtensionManager.shared.retrustAfterAuthorizedEdit(packageID: state.manifest.identifier)
         return true
-    }
-}
-
-// MARK: - Inset Group Card Container
-
-private struct InsetGroupCard<Content: View>: View {
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            content()
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
-        )
     }
 }

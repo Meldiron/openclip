@@ -38,6 +38,96 @@ final class EditActionSheetAppearanceTests: XCTestCase {
         )
     }
 
+    // MARK: - initialDisplayMode
+
+    func testInitialDisplayModeDefaultsToTextForTextGlyphIcons() {
+        XCTAssertEqual(EditActionSheet.initialDisplayMode(override: nil, actionIcon: .text("Copy")), 1)
+    }
+
+    func testInitialDisplayModeDefaultsToIconForSymbolIcons() {
+        XCTAssertEqual(EditActionSheet.initialDisplayMode(override: nil, actionIcon: .symbol("star")), 0)
+    }
+
+    func testInitialDisplayModeStoredTextOverrideWins() {
+        let override = ActionOverride(customIconSymbol: "doc.on.doc", customIconText: "Copy")
+        XCTAssertEqual(EditActionSheet.initialDisplayMode(override: override, actionIcon: .text("Copy")), 1)
+    }
+
+    func testInitialDisplayModeStoredSymbolOverrideKeepsIconModeForTextGlyphBuiltins() {
+        // Regression: Copy/Cut/Paste saved in Show Icon mode must reopen in Show Icon, not flip
+        // back to Show Text just because their own icon is a text glyph.
+        let override = ActionOverride(customIconSymbol: "doc.on.doc")
+        XCTAssertEqual(EditActionSheet.initialDisplayMode(override: override, actionIcon: .text("Copy")), 0)
+    }
+
+    func testInitialDisplayModeStoredSymbolOverrideKeepsIconModeForSymbolIcons() {
+        let override = ActionOverride(customIconSymbol: "heart.fill")
+        XCTAssertEqual(EditActionSheet.initialDisplayMode(override: override, actionIcon: .symbol("star")), 0)
+    }
+
+    // MARK: - iconModeFallbackSymbol
+
+    func testIconModeFallbackSymbolForTextGlyphBuiltins() {
+        XCTAssertEqual(EditActionSheet.iconModeFallbackSymbol(for: CopyAction()), "doc.on.doc")
+        XCTAssertEqual(EditActionSheet.iconModeFallbackSymbol(for: CutAction()), "scissors")
+        XCTAssertEqual(EditActionSheet.iconModeFallbackSymbol(for: PasteAction()), "doc.on.clipboard")
+        XCTAssertNil(EditActionSheet.iconModeFallbackSymbol(for: TextGlyphExtensionAction()))
+        XCTAssertNil(EditActionSheet.iconModeFallbackSymbol(for: SearchAction()))
+    }
+
+    // MARK: - resolvedIconModeSymbolOverride (Show Icon mode on text-glyph builtins)
+
+    func testShowIconModePersistsBuiltinPreferenceSymbolForTextGlyphBuiltins() {
+        // Copy/Cut/Paste carry `.text` icons by default; switching them to Show Icon must persist
+        // their hand-written preference symbol so popupIcon stops resolving the text glyph.
+        XCTAssertEqual(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "", initial: "", stored: nil, action: CopyAction()),
+            "doc.on.doc"
+        )
+        XCTAssertEqual(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "", initial: "", stored: nil, action: CutAction()),
+            "scissors"
+        )
+        XCTAssertEqual(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "", initial: "", stored: nil, action: PasteAction()),
+            "doc.on.clipboard"
+        )
+    }
+
+    func testShowTextModeDoesNotPersistBuiltinSymbolForTextGlyphBuiltins() {
+        XCTAssertNil(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 1, current: "", initial: "", stored: nil, action: CopyAction())
+        )
+    }
+
+    func testShowIconModeKeepsStoredSymbolOverBuiltinFallback() {
+        XCTAssertEqual(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "heart.fill", initial: "heart.fill", stored: "heart.fill", action: CopyAction()),
+            "heart.fill"
+        )
+    }
+
+    func testShowIconModePickedSymbolWinsOverBuiltinFallback() {
+        XCTAssertEqual(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "bolt.fill", initial: "", stored: nil, action: CopyAction()),
+            "bolt.fill"
+        )
+    }
+
+    func testShowIconModeAddsNoOverrideForSymbolIconedBuiltins() {
+        XCTAssertNil(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "magnifyingglass", initial: "magnifyingglass", stored: nil, action: SearchAction())
+        )
+    }
+
+    func testShowIconModeAddsNoOverrideForNonBuiltinTextGlyphActions() {
+        // Extension actions derive preferenceIconName from the icon (the glyph text itself is not a
+        // symbol), so Show Icon mode must not invent an override for them.
+        XCTAssertNil(
+            EditActionSheet.resolvedIconModeSymbolOverride(displayMode: 0, current: "", initial: "", stored: nil, action: TextGlyphExtensionAction())
+        )
+    }
+
     // MARK: - sanitizedStoredSymbol (legacy clobber healing)
 
     func testLegacyStarPlaceholderOnNonSymbolIconsIsTreatedAsAbsent() {
@@ -63,7 +153,8 @@ final class EditActionSheetAppearanceTests: XCTestCase {
         title: String = "",
         iconSymbol: String = "",
         initial: String = "",
-        base: ActionIcon? = nil
+        base: ActionIcon? = nil,
+        textGlyphFallbackSymbol: String? = nil
     ) -> ActionIcon {
         ActionAppearanceFields.resolvedPreviewIcon(
             displayMode: displayMode,
@@ -71,7 +162,8 @@ final class EditActionSheetAppearanceTests: XCTestCase {
             displayTextFallback: "Native Title",
             iconSymbol: iconSymbol,
             initialIconSymbol: initial,
-            baseIcon: base
+            baseIcon: base,
+            textGlyphFallbackSymbol: textGlyphFallbackSymbol
         )
     }
 
@@ -91,4 +183,44 @@ final class EditActionSheetAppearanceTests: XCTestCase {
     func testUntouchedSymbolBaselineStillPreviewsRealIcon() {
         XCTAssertEqual(preview(displayMode: 0, iconSymbol: "heart.fill", initial: "heart.fill", base: .text("T")), .text("T"))
     }
+
+    func testShowIconModePreviewsBuiltinFallbackSymbolForTextGlyphIcons() {
+        XCTAssertEqual(
+            preview(displayMode: 0, base: .text("Copy"), textGlyphFallbackSymbol: "doc.on.doc"),
+            .symbol("doc.on.doc")
+        )
+    }
+
+    func testShowIconModeKeepsTextGlyphWithoutFallbackSymbol() {
+        XCTAssertEqual(preview(displayMode: 0, base: .text("T")), .text("T"))
+    }
+
+    func testShowIconModeFallbackDoesNotOverwritePickedSymbol() {
+        XCTAssertEqual(
+            preview(displayMode: 0, iconSymbol: "bolt.fill", base: .text("Copy"), textGlyphFallbackSymbol: "doc.on.doc"),
+            .symbol("bolt.fill")
+        )
+    }
+
+    func testShowTextModeIgnoresFallbackSymbol() {
+        XCTAssertEqual(
+            preview(displayMode: 1, title: "Copy", base: .text("Copy"), textGlyphFallbackSymbol: "doc.on.doc"),
+            .text("Copy")
+        )
+    }
+}
+
+private struct TextGlyphExtensionAction: ConfigurableAction {
+    let id = "com.example.textglyph"
+    let title = "Text Glyph"
+    let icon: ActionIcon = .text("T")
+    let chrome: ActionChrome = ActionChrome(
+        badge: .script,
+        rowStyle: .standard,
+        popupBehavior: .perform,
+        source: .extensionPkg(packageID: "com.example.textglyph")
+    )
+
+    func isEnabled(for context: ActionContext) -> Bool { true }
+    func perform(_ context: ActionContext) async throws -> ActionResult { .none }
 }
