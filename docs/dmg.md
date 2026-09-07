@@ -114,9 +114,19 @@ inside a 660 × 400 window — so they scroll vertically for anyone with the tab
 - **Never draw the app icon or the Applications folder into the background.** Both are real
   Finder items placed on top of it; painting them in produces doubled icons. The background
   holds decoration only — headline, arrow, footer.
-- **Keep the background light.** When a disk image has a custom background picture, Finder
-  renders icon labels in light-mode black regardless of the user's appearance setting, so a
-  dark background makes the "OpenClip" and "Applications" labels unreadable in Dark Mode.
+- **Keep the background light, and there is no dark variant to add.** Finder's background
+  picture is a single static file. A multi-representation TIFF selects on *scale*, not
+  appearance, and nothing else in the `.DS_Store` is appearance-aware — so a disk image has
+  exactly two options: no background at all, in which case Finder adapts fully (dark window,
+  white labels), or a custom background, in which case Finder pins the window to light-mode
+  rendering. Icon labels stay black and the area around the canvas stays white even when the
+  title bar is dark, which is what makes the white bleed above work in Dark Mode too.
+
+  Shipping DMGs reflect that: of seven inspected, five are white or near-white (The
+  Unarchiver, Grammarly, Annotate, Vorssaint, Minecraft). The two dark ones both pay for it —
+  Steam and the Jagex launcher each paint a light plate into the background exactly where an
+  icon label lands, so the black text stays readable. Going dark here would mean adopting
+  that trick and keeping those plates aligned with `ICON_Y` by hand.
 - The volume icon is generated from `assets/app-icon.png` via `sips` + `iconutil`, so the
   mounted volume shows the app's icon in the Finder sidebar and on the desktop.
 - The window is intentionally free of a toolbar, status bar, path bar and sidebar, and the
