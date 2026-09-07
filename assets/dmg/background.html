@@ -1,6 +1,6 @@
 <!doctype html>
-<!-- Source of truth for the DMG window background. Icon slots and window size are
-     mirrored in scripts/make_dmg.sh; see docs/dmg.md before changing coordinates. -->
+<!-- Source of truth for the DMG window background. Canvas size, icon slots and the
+     white bleed margin are mirrored in scripts/make_dmg.sh; read docs/dmg.md first. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -9,9 +9,9 @@
     --brand: #0084FF;
     --ink: #2D2D2D;
     --muted: #86868B;
-    --window-w: 660px;
-    --window-h: 420px;
-    --icon-y: 232px;
+    --canvas-w: 660px;
+    --canvas-h: 380px;
+    --icon-y: 210px;
     --app-x: 170px;
     --drop-x: 490px;
   }
@@ -19,34 +19,27 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
-    width: var(--window-w);
-    height: var(--window-h);
+    width: var(--canvas-w);
+    height: var(--canvas-h);
     overflow: hidden;
   }
 
+  /* The outer edges must stay pure white: Finder draws this image at its natural size
+     anchored top-left, so any Finder chrome the window gains leaves a white margin
+     around it that has to be indistinguishable from the artwork. */
   body {
     position: relative;
     font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(760px 420px at 50% -12%, #FFFFFF 0%, rgba(255, 255, 255, 0) 62%),
-      radial-gradient(420px 300px at 50% 58%, rgba(0, 132, 255, 0.10) 0%, rgba(0, 132, 255, 0) 70%),
-      linear-gradient(180deg, #FBFBFC 0%, #F1F0F0 100%);
-  }
-
-  body::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(45, 45, 45, 0.055) 1px, transparent 1px);
-    background-size: 22px 22px;
-    -webkit-mask-image: radial-gradient(560px 380px at 50% 46%, transparent 38%, #000 100%);
-    opacity: 0.6;
+      radial-gradient(460px 300px at 50% 55%, rgba(0, 132, 255, 0.10) 0%, rgba(0, 132, 255, 0) 70%),
+      radial-gradient(620px 360px at 50% 118%, rgba(45, 45, 45, 0.05) 0%, rgba(45, 45, 45, 0) 62%),
+      #FFFFFF;
   }
 
   .header {
     position: absolute;
-    top: 44px;
+    top: 42px;
     left: 0;
     right: 0;
     text-align: center;
@@ -62,7 +55,6 @@
   .subtitle {
     margin-top: 9px;
     font-size: 14px;
-    font-weight: 400;
     letter-spacing: -0.1px;
     color: var(--muted);
   }
@@ -79,7 +71,7 @@
 
   .footer {
     position: absolute;
-    bottom: 34px;
+    bottom: 30px;
     left: 0;
     right: 0;
     text-align: center;

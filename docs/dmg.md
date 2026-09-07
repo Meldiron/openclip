@@ -39,17 +39,34 @@ properties at the top of `assets/dmg/background.html` and the constants near the
 
 | Value | Setting |
 | --- | --- |
-| Window content size | 660 × 420 pt |
+| Background canvas | 660 × 380 pt |
+| Finder chrome allowance | 68 pt |
+| Window size | 660 × 448 pt (canvas + chrome) |
 | Icon size | 128 pt |
 | Icon label text size | 13 pt |
-| Icon row centre | y = 232 |
+| Icon row centre | y = 210 |
 | `OpenClip.app` centre | x = 170 |
 | `Applications` centre | x = 490 |
 
 Finder positions are the **centre** of each icon, measured from the top-left of the window
 content area. With a 128 pt icon the graphic spans ±64 pt around the centre and Finder
-draws the label just below it, so the background must leave roughly y = 168…318 clear
+draws the label just below it, so the background must leave roughly y = 146…296 clear
 across both icon columns.
+
+### Why the window is taller than the canvas
+
+Finder draws the background at its **natural size**, anchored to the top-left of the
+content area — it never scales it. If the image is larger than that area, the window gets
+scroll bars, which is the single most common way a styled DMG ends up looking broken.
+
+`--window-size` covers the whole window frame, and Finder chrome eats into it: a 28 pt
+title bar always, plus a ~36 pt tab bar for anyone who leaves **View → Show Tab Bar** on.
+That setting belongs to the person opening the DMG, so the safe move is to size the window
+for the worst case (`CHROME_H = 68`) and let the canvas be shorter than the content area.
+
+The leftover margin is then covered by Finder's own white icon-view background, which is
+why **the canvas must bleed to pure white at its outer edges**. Keep the tint and texture
+away from the border; a coloured edge turns that margin into a visible seam.
 
 ## Design rules
 
@@ -83,5 +100,6 @@ osascript -e 'tell application "Finder" to tell disk "OpenClip"
 end tell'
 ```
 
-That should report bounds `{200, 120, 860, 540}` (a 660 × 420 content area), icon size
-`128`, and positions `{170, 232}` and `{490, 232}`.
+That should report bounds `{200, 120, 860, 568}` (a 660 × 448 window), icon size `128`, and
+positions `{170, 210}` and `{490, 210}`. Open it with the Finder tab bar both on and off and
+confirm neither state shows a scroll bar.

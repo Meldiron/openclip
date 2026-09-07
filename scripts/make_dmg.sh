@@ -28,11 +28,19 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-WINDOW_W=660
-WINDOW_H=420
+# The background is drawn by Finder at its natural size, anchored to the top-left of the
+# window's content area, and anything larger than that area makes the window scroll. The
+# content area is the window height minus Finder chrome: a 28pt title bar, plus a ~36pt tab
+# bar for users who leave "Show Tab Bar" on. So the window is sized taller than the canvas
+# by CHROME_H, and the canvas bleeds to white so the leftover margin is invisible.
+CANVAS_W=660
+CANVAS_H=380
+CHROME_H=68
+WINDOW_W=$CANVAS_W
+WINDOW_H=$((CANVAS_H + CHROME_H))
 ICON_SIZE=128
 TEXT_SIZE=13
-ICON_Y=232
+ICON_Y=210
 APP_X=170
 DROP_X=490
 
@@ -41,9 +49,9 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 echo "==> Rendering DMG background from assets/dmg/background.html..."
 swift "$SCRIPT_DIR/render_html_png.swift" \
-    "$PROJECT_DIR/assets/dmg/background.html" "$WORK_DIR/background.png" "$WINDOW_W" "$WINDOW_H" 1
+    "$PROJECT_DIR/assets/dmg/background.html" "$WORK_DIR/background.png" "$CANVAS_W" "$CANVAS_H" 1
 swift "$SCRIPT_DIR/render_html_png.swift" \
-    "$PROJECT_DIR/assets/dmg/background.html" "$WORK_DIR/background@2x.png" "$WINDOW_W" "$WINDOW_H" 2
+    "$PROJECT_DIR/assets/dmg/background.html" "$WORK_DIR/background@2x.png" "$CANVAS_W" "$CANVAS_H" 2
 
 # A multi-representation TIFF lets Finder pick the @2x rendition on Retina displays.
 sips -s format tiff "$WORK_DIR/background.png" --out "$WORK_DIR/background-1x.tiff" > /dev/null
