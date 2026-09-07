@@ -162,12 +162,7 @@ fi
 
 echo "==> Packaging OpenClip-v$VERSION.dmg..."
 DMG_NAME="OpenClip-v$VERSION.dmg"
-rm -f "$BUILD_DIR/$DMG_NAME"
-STAGING_DIR="$(mktemp -d)"
-cp -R "$APP_PATH" "$STAGING_DIR/"
-ln -s /Applications "$STAGING_DIR/Applications"
-hdiutil create -volname "OpenClip" -srcfolder "$STAGING_DIR" -ov -format UDZO "$BUILD_DIR/$DMG_NAME" > /dev/null
-rm -rf "$STAGING_DIR"
+"$SCRIPT_DIR/make_dmg.sh" "$APP_PATH" "$BUILD_DIR/$DMG_NAME"
 
 echo ""
 echo "==> Done! Release artifacts created:"
