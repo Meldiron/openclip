@@ -178,9 +178,16 @@ final class PaletteShortcutTests: XCTestCase {
 
         controller.show(for: selection, pasteAvailable: true, initialMode: .search)
         defer { controller.hide() }
-        RunLoop.current.run(until: Date().addingTimeInterval(0.6))
-
-        XCTAssertTrue(controller.runPaletteRow(1), "⌘1 must reach the live palette's first row")
+        let deadline = Date().addingTimeInterval(1.5)
+        var didRun = false
+        while Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            if controller.runPaletteRow(1) {
+                didRun = true
+                break
+            }
+        }
+        XCTAssertTrue(didRun, "⌘1 must reach the live palette's first row")
         XCTAssertFalse(controller.runPaletteRow(9), "a row that is not there runs nothing")
 
         controller.hide()

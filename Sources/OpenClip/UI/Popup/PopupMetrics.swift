@@ -11,10 +11,14 @@ public enum PopupMetrics {
     /// Standard width and height of an action button in the popup bar and sub-bar (normalized baseline at 1.0 scale).
     public static let actionButtonWidth: CGFloat = 34.0
     public static let barButtonHeight: CGFloat = 29.0
-    /// Corner radius for popup action bars and content cards (normalized baseline).
-    public static let popupCornerRadius: CGFloat = 8.5
+    /// Corner radius for popup action bars and sub-bars (normalized baseline).
+    public static let popupCornerRadius: CGFloat = 12.0
+    /// Corner radius for modal result cards and the action-search palette.
+    public static let cardCornerRadius: CGFloat = 14.0
     /// Corner radius for the action-search palette.
-    public static let searchCornerRadius: CGFloat = 10.0
+    public static let searchCornerRadius: CGFloat = 14.0
+    /// Corner radius for individual search palette result rows.
+    public static let searchRowCornerRadius: CGFloat = 8.0
     /// Corner radius for floating toast bubbles.
     public static let toastCornerRadius: CGFloat = 14.0
     /// Gap between a toast bubble and the popup edge it attaches to.
@@ -44,25 +48,25 @@ public enum PopupMetrics {
     /// above the action bar instead of below (numerically equals `popupDismissalDistance`).
     public static let cardAboveThreshold: CGFloat = 280.0
     /// Action-search palette sizing: content width, total panel width, visible result rows and result row height.
-    public static let searchPanelContentWidth: CGFloat = 280.0
+    public static let searchPanelContentWidth: CGFloat = 300.0
     public static var searchPanelWidth: CGFloat { searchPanelContentWidth + 2 * popupShadowInset }
-    public static let searchMaxRows: Int = 5
+    public static let searchMaxRows: Int = 6
     public static let searchResultRowHeight: CGFloat = 32
     /// Fraction of an extra result row shown beyond `searchMaxRows` so the next action peeks,
     /// hinting that the list scrolls.
-    public static let searchPeekRowFraction: CGFloat = 0.5
+    public static let searchPeekRowFraction: CGFloat = 0.0
     /// Shared height cap for the popup panel (search palette field + result rows and content cards).
-    public static let popupMaxHeight: CGFloat = 300
+    public static let popupMaxHeight: CGFloat = 312
     /// Native AI result card sizing: width clamped to the shared popup column and a max body
     /// height so a long response scrolls instead of growing the panel without bound.
     public static let aiCardMinWidth: CGFloat = 220
     public static let aiCardIdealWidth: CGFloat = 320
     public static let aiCardMaxWidth: CGFloat = 360
-    public static let aiCardMinHeight: CGFloat = 155
-    public static let aiCardMaxHeight: CGFloat = 262
+    public static let aiCardMinHeight: CGFloat = 200
+    public static let aiCardMaxHeight: CGFloat = 280
     /// The card's scrollable body region has a max height so a long response scrolls instead of
     /// growing the panel without bound. Clamped so that the card plus popupShadowInset stays under
-    /// `popupMaxHeight` (300 pt), avoiding window clipping.
+    /// `popupMaxHeight` (312 pt), avoiding window clipping.
     public static let aiCardBodyHeight: CGFloat = 170
     /// How long an info/error toast stays up before auto-dismissing (1.2 s — long enough to read
     /// "Copied"-style feedback). Loading toasts have no timer — they live until the action's

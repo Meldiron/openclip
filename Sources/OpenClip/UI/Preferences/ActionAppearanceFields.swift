@@ -118,7 +118,7 @@ struct ActionAppearanceFields: View {
                         .frame(width: 48, height: 48)
 
                     Image(systemName: "pencil.circle.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 17))
                         .foregroundColor(.secondary)
                         .background(Circle().fill(Color(nsColor: .windowBackgroundColor)).padding(1))
                         .offset(x: 2, y: 2)

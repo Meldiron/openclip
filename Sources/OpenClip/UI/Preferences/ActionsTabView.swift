@@ -172,6 +172,9 @@ struct ActionRowView: View {
                                 } else {
                                     ActionCoordinator.shared.ungroup(groupID: action.id)
                                 }
+                            } else if case .custom = action.chrome.source {
+                                ActionCoordinator.shared.deleteCustomAction(actionID: action.id)
+                                ActionCustomizationManager.shared.resetOverride(for: action.id)
                             } else {
                                 do {
                                     try await ExtensionManager.shared.uninstallExtension(actionID: action.id)

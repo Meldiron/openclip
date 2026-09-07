@@ -64,6 +64,13 @@ public struct PopupView: View {
     /// Returns the click intent captured at mouse-down for the current click, so the left-click
     /// perform path can thread a force-copy click (⇧-click) into the action context.
     public let onClickIntent: @MainActor () -> ActionResultDelivery.ClickIntent
+    /// Shows the hover tooltip for a bar button in the controller's screen-space tooltip window:
+    /// (text, button frame in popupHoverSpace, effective theme token, isDark). The controller
+    /// converts the frame to screen coordinates and places the tooltip via TooltipPlacer so it
+    /// escapes the panel's clipping and avoids the expanded sub-bar.
+    public let onShowTooltip: (@MainActor (String, CGRect, String, Bool) -> Void)?
+    /// Hides the screen-space hover tooltip.
+    public let onHideTooltip: (@MainActor () -> Void)?
     /// True when this is a static preview — hover tracking is disabled entirely so the
     /// preview never reacts to (or leaks into) the real popup's shared hover state.
     private let isStatic: Bool
@@ -126,9 +133,7 @@ public struct PopupView: View {
     /// Completions are computed exactly once per show — the selection text is fixed for this view's
     /// lifetime — and cached, so NSSpellChecker dictionary work never runs inside `body`.
     @State private var cachedCompletions: [String]
-    @State private var activeTooltip: (text: String, frame: CGRect)? = nil
-    @State private var tooltipTask: Task<Void, Never>? = nil
-    @State private var isTooltipHot: Bool = false
+    @State private var tooltipPresenter = TooltipPresenter()
 
     private var scale: CGFloat { PopupMetrics.scaleMultiplier(for: popupScale) }
     private var buttonWidth: CGFloat { PopupMetrics.actionButtonWidth * scale }
@@ -169,7 +174,9 @@ public struct PopupView: View {
         onWillPerformAction: (@MainActor (any Action) -> Void)? = nil,
         onRunLoadingAction: (@MainActor (any Action) -> Void)? = nil,
         onRunAI: (@MainActor (String) -> Void)? = nil,
-        onClickIntent: @escaping @MainActor () -> ActionResultDelivery.ClickIntent = { .primary }
+        onClickIntent: @escaping @MainActor () -> ActionResultDelivery.ClickIntent = { .primary },
+        onShowTooltip: (@MainActor (String, CGRect, String, Bool) -> Void)? = nil,
+        onHideTooltip: (@MainActor () -> Void)? = nil
     ) {
         self.actions = actions
         self.allActions = allActions ?? actions
@@ -194,6 +201,8 @@ public struct PopupView: View {
         self.onRunLoadingAction = onRunLoadingAction
         self.onRunAI = onRunAI
         self.onClickIntent = onClickIntent
+        self.onShowTooltip = onShowTooltip
+        self.onHideTooltip = onHideTooltip
         self.isStatic = isStatic
         self.hoverState = hoverState
         self.presenter = presenter
@@ -291,21 +300,6 @@ public struct PopupView: View {
             // region from mouse hit-testing so shadow clicks fall through to the app below.
             .padding(PopupMetrics.popupShadowInset)
             .coordinateSpace(name: "popupHoverSpace")
-            .overlay(alignment: .topLeading) {
-                GeometryReader { geo in
-                    if let tooltip = activeTooltip {
-                        PopupTooltipContainer(
-                            text: tooltip.text,
-                            targetFrame: tooltip.frame,
-                            containerWidth: geo.size.width,
-                            effectiveTheme: effectiveTheme,
-                            isDark: effectiveColorScheme == .dark
-                        )
-                        .transition(.opacity)
-                    }
-                }
-                .allowsHitTesting(false)
-            }
             .background(
                 GeometryReader { proxy in
                     Color.clear
@@ -332,9 +326,7 @@ public struct PopupView: View {
             }
             .onChange(of: modeStore.mode) { _, newMode in
                 if newMode != .actions {
-                    activeTooltip = nil
-                    tooltipTask?.cancel()
-                    isTooltipHot = false
+                    tooltipPresenter.reset { onHideTooltip?() }
                     onCancelSubBarDwell?()
                 }
             }
@@ -345,8 +337,7 @@ public struct PopupView: View {
                 onAIStateChange?(active, aiCardAboveBar)
             }
             .onDisappear {
-                activeTooltip = nil
-                tooltipTask?.cancel()
+                tooltipPresenter.reset { onHideTooltip?() }
                 cancelAITask()
                 onCancelSubBarDwell?()
             }
@@ -358,6 +349,8 @@ public struct PopupView: View {
     private var barContent: some View {
         if modeStore.mode == .content {
             resultCard
+        } else if modeStore.mode == .search {
+            searchCard
         } else {
             mainBarStyled
         }
@@ -449,9 +442,7 @@ public struct PopupView: View {
 
     @ViewBuilder
     private var unifiedHStack: some View {
-        if modeStore.mode == .search {
-            searchContent
-        } else if inCompletionMode {
+        if inCompletionMode {
             completionHStack
         } else {
             actionsStack
@@ -465,12 +456,15 @@ public struct PopupView: View {
         actionsHStack
     }
 
+    /// The action-search palette: renders PopupSearchView with dedicated card chrome matching
+    /// ResultCardView in content mode.
     @ViewBuilder
-    private var searchContent: some View {
+    private var searchCard: some View {
         PopupSearchView(
             catalog: searchCatalog,
             context: context,
-            resultsAbove: modeStore.searchResultsAbove,
+            resultsAbove: false,
+            presenter: presenter,
             scope: modeStore.scope,
             usageRecency: ActionUsageStore.shared.recency,
             onResult: onResult,
@@ -502,6 +496,8 @@ public struct PopupView: View {
             onRunLoadingAction: onRunLoadingAction,
             onClickIntent: onClickIntent
         )
+        .environment(\.colorScheme, effectiveColorScheme)
+        .environment(\.popupEffectiveTheme, effectiveTheme)
     }
 
     /// The search palette's catalog: the coordinator's search catalog minus Paste-requiring
@@ -937,33 +933,21 @@ public struct PopupView: View {
     }
 
     private func updateTooltip(for target: PopupHoverTarget?) {
-        tooltipTask?.cancel()
-        guard !isStatic, modeStore.mode == .actions, let target, let text = tooltipText(for: target), let targetFrame = hoverFrames[target] else {
-            withAnimation(.easeOut(duration: 0.1)) {
-                activeTooltip = nil
+        let resolved: (text: String, frame: CGRect)? = {
+            guard !isStatic, modeStore.mode == .actions, let target,
+                  let text = tooltipText(for: target), let targetFrame = hoverFrames[target] else { return nil }
+            return (text, targetFrame)
+        }()
+        tooltipPresenter.update(
+            text: resolved?.text,
+            show: { [onShowTooltip, effectiveTheme, isDark = effectiveColorScheme == .dark] in
+                guard let resolved else { return }
+                onShowTooltip?(resolved.text, resolved.frame, effectiveTheme, isDark)
+            },
+            hide: { [onHideTooltip] in
+                onHideTooltip?()
             }
-            tooltipTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                guard !Task.isCancelled else { return }
-                isTooltipHot = false
-            }
-            return
-        }
-
-        if isTooltipHot {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                activeTooltip = (text: text, frame: targetFrame)
-            }
-        } else {
-            tooltipTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                guard !Task.isCancelled else { return }
-                isTooltipHot = true
-                withAnimation(.easeOut(duration: 0.15)) {
-                    activeTooltip = (text: text, frame: targetFrame)
-                }
-            }
-        }
+        )
     }
 
     // MARK: - Icon Helper

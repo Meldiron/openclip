@@ -97,6 +97,11 @@ public class PopupWindowController {
     /// The standalone floating panel hosting group sub-actions and AI tool presets.
     public let subBarController: SubBarPanelController
 
+    /// The screen-space hover-tooltip surface shared with the sub-bar controller. Tooltips render
+    /// in their own window above both bar panels so they escape panel clipping, flip above/below
+    /// the hovered bar, and avoid the expanded sub-bar. Injected for tests.
+    public let tooltipController: TooltipPanelController
+
     /// The resolved active actions for the current session, used for sub-action resolution.
     private var currentActions: [any Action]? = nil
 
@@ -132,14 +137,16 @@ public class PopupWindowController {
     private var accumulatedScrollDelta: CGFloat = 0
 
     public init(resultHandler: ActionResultHandler = DefaultActionResultHandler(),
-                pasteProbe: PasteAvailabilityProbing = PasteAvailabilityProbe(),
-                toastController: ToastPanelController = ToastPanelController(),
-                subBarController: SubBarPanelController = SubBarPanelController(),
-                settingsStore: SettingsStore = DefaultSettingsStore.shared) {
+                 pasteProbe: PasteAvailabilityProbing = PasteAvailabilityProbe(),
+                 toastController: ToastPanelController = ToastPanelController(),
+                 subBarController: SubBarPanelController = SubBarPanelController(),
+                 tooltipController: TooltipPanelController = .shared,
+                 settingsStore: SettingsStore = DefaultSettingsStore.shared) {
         self.resultHandler = resultHandler
         self.pasteProbe = pasteProbe
         self.toastController = toastController
         self.subBarController = subBarController
+        self.tooltipController = tooltipController
         self.settingsStore = settingsStore
 
         self.subBarController.onDismiss = { [weak self] in
@@ -311,7 +318,13 @@ public class PopupWindowController {
                 let prompt = AIServiceManager.shared.promptForPreset(preset)
                 self.runAIPreset(prompt: prompt, title: preset.title)
             },
-            onClickIntent: { [weak self] in self?.pendingClickIntent ?? .primary }
+            onClickIntent: { [weak self] in self?.pendingClickIntent ?? .primary },
+            onShowTooltip: { [weak self] text, localFrame, theme, isDark in
+                self?.presentTooltip(text: text, localFrame: localFrame, effectiveTheme: theme, isDark: isDark)
+            },
+            onHideTooltip: { [weak self] in
+                self?.tooltipController.hide()
+            }
         )
         panel.contentView = PopupPanel.ContentView(rootView: rootView)
         panel.contentView?.layoutSubtreeIfNeeded()
@@ -702,6 +715,7 @@ public class PopupWindowController {
             toastController.hide()
         }
         subBarController.hide()
+        tooltipController.hide()
         currentActions = nil
         modeStore.resultCard = nil
         modeStore.canPaste = nil
@@ -1126,6 +1140,31 @@ public class PopupWindowController {
         let viewRect = NSRect(x: hoverFrame.minX, y: hoverFrame.minY, width: hoverFrame.width, height: hoverFrame.height)
         let windowRect = contentView.convert(viewRect, to: nil)
         return panel.convertToScreen(windowRect)
+    }
+
+    // MARK: - Tooltip Presentation
+
+    /// Presents a bar button's hover tooltip in the screen-space tooltip window. Converts the
+    /// button frame from popupHoverSpace to screen coordinates and hands the expanded sub-bar's
+    /// frame to the placer as an avoidance rect, so the tooltip flips below the bar instead of
+    /// colliding with the sub-bar (or being clamped on top of the bar's own buttons, the old
+    /// in-panel behavior).
+    private func presentTooltip(text: String, localFrame: CGRect, effectiveTheme: String, isDark: Bool) {
+        guard let panel, panel.isVisible else { return }
+        let targetScreenFrame = convertHoverFrameToScreen(localFrame)
+        guard !targetScreenFrame.isEmpty else { return }
+        var avoidanceRects: [CGRect] = []
+        if subBarController.isShowing {
+            avoidanceRects.append(subBarController.panelFrame)
+        }
+        tooltipController.show(
+            text: text,
+            targetScreenFrame: targetScreenFrame,
+            avoidanceRects: avoidanceRects,
+            effectiveTheme: effectiveTheme,
+            isDark: isDark,
+            maxWidth: panel.frame.width - 32
+        )
     }
 
     private func handleSubBarToggle(for action: any Action, index: Int, frame: CGRect) {

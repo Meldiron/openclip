@@ -1,178 +1,215 @@
 // AddCustomActionSheet.swift
 // OpenClip
 //
-// Renders the modal sheet interface for creating new custom web search, snippet, or script actions.
-// On add it writes a single-action manifest package (com.custom.<id>/openclip.json) and reloads the
-// extension list, so the GUI and JSON manifests share one storage/list.
+// Renders the modal sheet interface for creating new custom actions (Open URL, Text Snippet, Shell Script).
+// Newly created actions are saved as first-class CustomAction models in SettingsStore and registered
+// via ActionCoordinator, visually matching EditActionSheet.
 import SwiftUI
 import Core
 
 @MainActor
 public struct AddCustomActionSheet: View {
     @Environment(\.dismiss) private var dismiss
-    
-    @State private var typeIndex = 0
-    @State private var title = ""
-    @State private var iconName = "wand.and.stars"
-    @State private var showingIconPicker = false
-    
-    // Web Search
-    @State private var urlTemplate = "https://google.com/search?q={text}"
-    
-    // Text Snippet
-    @State private var snippetTemplate = "**{text}**"
-    
-    // Shell Script
-    @State private var shellScript = "echo \"$OPENCLIP_TEXT\" | tr '[:lower:]' '[:upper:]'"
-    @State private var replaceSelection = false
-    
+
+    // Appearance State (matching EditActionSheet's Hero Header Card)
+    @State private var customTitle: String = ""
+    @State private var iconSymbol: String = "wand.and.stars"
+    private let initialIconSymbol: String = "wand.and.stars"
+    @State private var displayMode: Int = 0 // 0 = Show Icon, 1 = Show Text
+
+    // Execution Logic State
+    private enum ActionKind: Hashable {
+        case openURL
+        case textSnippet
+        case shellScript
+    }
+    @State private var actionKind: ActionKind = .openURL
+    @State private var customURLTemplate: String = "https://google.com/search?q={text}"
+    @State private var customSnippetTemplate: String = "**{text}**"
+    @State private var customShellScript: String = "echo \"$OPENCLIP_TEXT\" | tr '[:lower:]' '[:upper:]'"
+    @State private var replaceSelection: Bool = false
+
     public init() {}
-    
+
     public var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(spacing: 0) {
             // Header
-            Text("Add Custom Action")
-                .font(.headline)
-
-            // Type picker
-            Picker("Action Type", selection: $typeIndex) {
-                Text("Web Search").tag(0)
-                Text("Text Snippet").tag(1)
-                Text("Shell Script").tag(2)
-            }
-            .pickerStyle(.segmented)
-
-            // Title + Icon row
-            HStack(spacing: 10) {
-                TextField("Action Title / Text", text: $title)
-                    .textFieldStyle(.roundedBorder)
-
-                // Icon preview button — opens picker
-                Button {
-                    showingIconPicker.toggle()
-                } label: {
-                    HStack(spacing: 6) {
-                        AnyIconView(iconId: iconName.isEmpty ? "wand.and.stars" : iconName)
-                            .frame(width: 22, height: 22)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(Color.primary.opacity(0.06))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                    )
+            HStack {
+                Text("Add Custom Action")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer()
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Choose icon")
-                .popover(isPresented: $showingIconPicker, arrowEdge: .bottom) {
-                    IconPickerPopover(selectedIcon: $iconName)
+                .accessibilityLabel("Close")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            // Content Area
+            VStack(alignment: .leading, spacing: 12) {
+                // Hero Header Card (Icon, Name & Display Mode)
+                InsetGroupCard {
+                    ActionAppearanceFields(
+                        title: $customTitle,
+                        displayTextFallback: "Custom Action",
+                        iconSymbol: $iconSymbol,
+                        initialIconSymbol: initialIconSymbol,
+                        baseIcon: nil,
+                        displayMode: $displayMode
+                    )
+                }
+
+                // Execution Logic Card
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("EXECUTION LOGIC")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+
+                    InsetGroupCard {
+                        VStack(spacing: 0) {
+                            HStack {
+                                Text("Type")
+                                    .font(.subheadline)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Picker("", selection: $actionKind) {
+                                    Text("Open URL").tag(ActionKind.openURL)
+                                    Text("Text Snippet").tag(ActionKind.textSnippet)
+                                    Text("Shell Script").tag(ActionKind.shellScript)
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+
+                            Divider()
+                                .padding(.horizontal, 12)
+
+                            Group {
+                                switch actionKind {
+                                case .openURL:
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("URL Template")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        TextField("https://example.com/search?q={text}", text: $customURLTemplate)
+                                            .textFieldStyle(.roundedBorder)
+                                        Text("Use **{text}** or **{selection}** as a placeholder for the selected text.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                case .textSnippet:
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Snippet Template")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        TextEditor(text: $customSnippetTemplate)
+                                            .font(.system(.body, design: .monospaced))
+                                            .frame(height: 70)
+                                            .scrollContentBackground(.hidden)
+                                            .padding(6)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                    .fill(Color.primary.opacity(0.04))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                            .stroke(Color.primary.opacity(0.12))
+                                                    )
+                                            )
+                                        Text("Use **{text}** or **{selection}** as a placeholder for the selected text.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                case .shellScript:
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text("Shell Script (Zsh)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                        TextEditor(text: $customShellScript)
+                                            .font(.system(.body, design: .monospaced))
+                                            .frame(height: 90)
+                                            .scrollContentBackground(.hidden)
+                                            .padding(6)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                    .fill(Color.primary.opacity(0.04))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                            .stroke(Color.primary.opacity(0.12))
+                                                    )
+                                            )
+                                        Toggle("Replace selected text with output", isOn: $replaceSelection)
+                                            .font(.subheadline)
+                                        Text("Use **$OPENCLIP_TEXT** for the selected text.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                        }
+                    }
                 }
             }
+            .padding(16)
 
-
-
-            Divider()
-
-            // Type-specific fields
-            Group {
-                if typeIndex == 0 {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("URL Template").font(.subheadline).fontWeight(.medium)
-                        TextField("https://google.com/search?q={text}", text: $urlTemplate)
-                            .textFieldStyle(.roundedBorder)
-                        Text("Use **{text}** as a placeholder for the selected text.")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                } else if typeIndex == 1 {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Snippet Template").font(.subheadline).fontWeight(.medium)
-                        TextField("e.g. **{text}**", text: $snippetTemplate)
-                            .textFieldStyle(.roundedBorder)
-                        Text("Use **{text}** as a placeholder for the selected text.")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Shell Script").font(.subheadline).fontWeight(.medium)
-                        TextEditor(text: $shellScript)
-                            .frame(height: 80)
-                            .font(.system(.body, design: .monospaced))
-                            .scrollContentBackground(.hidden)
-                            .padding(6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.primary.opacity(0.04))
-                                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.12)))
-                            )
-                        Text("Use **$OPENCLIP_TEXT** for the selected text.")
-                            .font(.caption).foregroundColor(.secondary)
-                        Toggle("Replace selection with output", isOn: $replaceSelection)
-                    }
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            HStack {
+            // Footer
+            HStack(spacing: 8) {
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Add Action") { addAction() }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(customTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
-        .padding(22)
-        .frame(width: 460)
+        .frame(width: 440)
     }
-    
+
     private func addAction() {
+        let trimmedTitle = customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else { return }
+
         let actionType: CustomActionType
-        switch typeIndex {
-        case 0:  actionType = .webSearch(urlTemplate: urlTemplate)
-        case 1:  actionType = .textSnippet(template: snippetTemplate)
-        case 2:  actionType = .shellScript(script: shellScript, replaceSelection: replaceSelection)
-        default: return
+        switch actionKind {
+        case .openURL:
+            actionType = .openURL(urlTemplate: customURLTemplate)
+        case .textSnippet:
+            actionType = .textSnippet(template: customSnippetTemplate)
+        case .shellScript:
+            actionType = .shellScript(script: customShellScript, replaceSelection: replaceSelection)
         }
-        let actionTitle = title.trimmingCharacters(in: .whitespaces)
+
+        let id = "custom.\(UUID().uuidString.prefix(8).lowercased())"
+        let resolvedIcon = iconSymbol.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "wand.and.stars" : iconSymbol
         let newAction = CustomAction(
-            id: "com.custom.\(UUID().uuidString.prefix(8))",
-            title: actionTitle,
-            iconName: iconName.isEmpty ? "wand.and.stars" : iconName,
+            id: id,
+            title: trimmedTitle,
+            iconName: resolvedIcon,
             type: actionType
         )
-        // The manifest is the only canonical action definition: write a single-action package
-        // under ~/.openclip/extensions and let the extension loader register it.
-        Task {
-            do {
-                try CustomActionManifestWriter.write(action: newAction)
-                await ExtensionManager.shared.loadExtensions()
-            } catch {
-                Log.factory.error("Failed to write custom action manifest: \(error.localizedDescription)")
-            }
-            dismiss()
-        }
-    }
-}
 
-// MARK: - Icon Picker Popover
-@MainActor
-struct IconPickerPopover: View {
-    @Binding var selectedIcon: String
-    @Environment(\.dismiss) private var dismiss
+        ActionCoordinator.shared.saveCustomAction(newAction)
 
-    var body: some View {
-        IconPickerView(selectedSymbol: $selectedIcon) {
-            dismiss()
+        if displayMode == 1 {
+            ActionCustomizationManager.shared.setOverride(
+                for: id,
+                title: nil,
+                symbol: nil,
+                text: trimmedTitle
+            )
         }
-        .padding(12)
-        .frame(width: 360, height: 320)
+
+        dismiss()
     }
 }

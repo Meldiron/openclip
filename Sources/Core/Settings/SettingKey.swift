@@ -100,6 +100,7 @@ public extension SettingKey where Value == Double {
 public extension SettingKey where Value == Data? {
     static var actionCustomizations: SettingKey<Data?> { SettingKey<Data?>("action.customizations", defaultValue: nil) }
     static var actionGroups: SettingKey<Data?> { SettingKey<Data?>("action.groups", defaultValue: nil) }
+    static var customActions: SettingKey<Data?> { SettingKey<Data?>("customActions", defaultValue: nil) }
 }
 
 public extension SettingKey where Value == String {

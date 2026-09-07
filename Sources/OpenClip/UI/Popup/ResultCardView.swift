@@ -19,22 +19,8 @@ import SwiftUI
 import AppKit
 import Core
 
-// MARK: - Effective Theme Injection
-
-/// Carries the popup's resolved theme token ("light"/"dark"/"glass") down to the card so its
-/// chrome matches the bar (PopupView sets both this and the forced `.colorScheme`).
-private struct PopupEffectiveThemeKey: EnvironmentKey {
-    static let defaultValue = "dark"
-}
-
-extension EnvironmentValues {
-    var popupEffectiveTheme: String {
-        get { self[PopupEffectiveThemeKey.self] }
-        set { self[PopupEffectiveThemeKey.self] = newValue }
-    }
-}
-
 // MARK: - Card Drag
+
 
 /// Phases of a drag on the card's header handle. The card only reports them; the controller owns
 /// the panel and does the moving.
@@ -223,37 +209,12 @@ public struct ResultCardView: View {
 
     // MARK: - Chrome
 
-    private static let cardCornerRadius: CGFloat = 14.0
+    private static let cardCornerRadius: CGFloat = PopupMetrics.cardCornerRadius
     private static let buttonCornerRadius: CGFloat = 8.0
 
     private func cardChrome<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Self.cardCornerRadius, style: .continuous)
-        let classicBorderColor: Color = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
-        return content()
-            .background(
-                Group {
-                    if effectiveTheme == "glass" {
-                        LayeredGlassBackground(cornerRadius: Self.cardCornerRadius, colorScheme: colorScheme)
-                    } else {
-                        shape.fill(
-                            Color(red: colorScheme == .dark ? 0.18 : 0.94,
-                                  green: colorScheme == .dark ? 0.18 : 0.94,
-                                  blue: colorScheme == .dark ? 0.20 : 0.96)
-                        )
-                    }
-                }
-            )
-            .clipShape(shape)
-            .overlay(
-                Group {
-                    if effectiveTheme == "glass" {
-                        LayeredGlassBorder(cornerRadius: Self.cardCornerRadius, colorScheme: colorScheme)
-                    } else {
-                        shape.stroke(classicBorderColor, lineWidth: 1.0)
-                    }
-                }
-            )
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.14), radius: 10, x: 0, y: 4)
+        content()
+            .popupCardChrome(cornerRadius: Self.cardCornerRadius, effectiveTheme: effectiveTheme, colorScheme: colorScheme)
     }
 
     // MARK: - Header
@@ -310,10 +271,10 @@ public struct ResultCardView: View {
             closeButton
         }
         .padding(.horizontal, 8)
-        .frame(height: 32)
+        .frame(height: Self.headerHeight)
         .background(headerCapsuleBackground)
         .padding(.horizontal, 12)
-        .padding(.top, 14)
+        .padding(.top, Self.headerTopPadding)
     }
 
     private var headerCapsuleBackground: some View {
@@ -348,13 +309,13 @@ public struct ResultCardView: View {
         return LinearGradient(
             stops: [
                 .init(color: bg, location: 0.0),
-                .init(color: bg.opacity(0.85), location: 0.55),
+                .init(color: bg.opacity(0.85), location: 0.60),
                 .init(color: bg.opacity(0.0), location: 1.0)
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .frame(height: 52)
+        .frame(height: Self.topInset)
         .allowsHitTesting(false)
     }
 
@@ -446,7 +407,10 @@ public struct ResultCardView: View {
         PopupMetrics.aiCardIdealWidth
     }
 
-    private static let topInset: CGFloat = 52.0
+    private static let headerHeight: CGFloat = 32.0
+    private static let headerTopPadding: CGFloat = 14.0
+    private static let gapAfterHeader: CGFloat = 14.0
+    private static let topInset: CGFloat = headerTopPadding + headerHeight + gapAfterHeader
     private static let bottomInset: CGFloat = 42.0
 
     private var naturalContentHeight: CGFloat {

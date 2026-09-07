@@ -11,9 +11,65 @@
 import Foundation
 
 public enum CustomActionType: Codable, Sendable, Equatable, Hashable {
-    case webSearch(urlTemplate: String)
+    case openURL(urlTemplate: String)
     case textSnippet(template: String)
     case shellScript(script: String, replaceSelection: Bool)
+
+    /// Backward compatibility helper for legacy call sites and tests.
+    public static func webSearch(urlTemplate: String) -> CustomActionType {
+        .openURL(urlTemplate: urlTemplate)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case openURL
+        case webSearch
+        case textSnippet
+        case shellScript
+    }
+
+    private struct URLParams: Codable {
+        let urlTemplate: String
+    }
+
+    private struct SnippetParams: Codable {
+        let template: String
+    }
+
+    private struct ShellParams: Codable {
+        let script: String
+        let replaceSelection: Bool
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if container.contains(.openURL) {
+            let params = try container.decode(URLParams.self, forKey: .openURL)
+            self = .openURL(urlTemplate: params.urlTemplate)
+        } else if container.contains(.webSearch) {
+            let params = try container.decode(URLParams.self, forKey: .webSearch)
+            self = .openURL(urlTemplate: params.urlTemplate)
+        } else if container.contains(.textSnippet) {
+            let params = try container.decode(SnippetParams.self, forKey: .textSnippet)
+            self = .textSnippet(template: params.template)
+        } else if container.contains(.shellScript) {
+            let params = try container.decode(ShellParams.self, forKey: .shellScript)
+            self = .shellScript(script: params.script, replaceSelection: params.replaceSelection)
+        } else {
+            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Unknown CustomActionType"))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .openURL(let urlTemplate):
+            try container.encode(URLParams(urlTemplate: urlTemplate), forKey: .openURL)
+        case .textSnippet(let template):
+            try container.encode(SnippetParams(template: template), forKey: .textSnippet)
+        case .shellScript(let script, let replaceSelection):
+            try container.encode(ShellParams(script: script, replaceSelection: replaceSelection), forKey: .shellScript)
+        }
+    }
 }
 
 public struct CustomAction: ConfigurableAction, Codable, Sendable, Equatable {
@@ -67,7 +123,7 @@ public struct CustomAction: ConfigurableAction, Codable, Sendable, Equatable {
         let text = context.selection.text
         let raw: ActionResult
         switch type {
-        case .webSearch(let urlTemplate):
+        case .openURL(let urlTemplate):
             let urlString = TextPlaceholderEngine.replacePlaceholders(in: urlTemplate, context: context, urlEncode: true)
             if let url = URL(string: urlString) {
                 raw = .openURL(url)

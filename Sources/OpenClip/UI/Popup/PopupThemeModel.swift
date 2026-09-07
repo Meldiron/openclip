@@ -78,3 +78,75 @@ enum PopupThemeModel {
         }
     }
 }
+
+// MARK: - Effective Theme Environment Key
+
+struct PopupEffectiveThemeKey: EnvironmentKey {
+    static let defaultValue = "dark"
+}
+
+public extension EnvironmentValues {
+    var popupEffectiveTheme: String {
+        get { self[PopupEffectiveThemeKey.self] }
+        set { self[PopupEffectiveThemeKey.self] = newValue }
+    }
+}
+
+// MARK: - Shared Card Chrome
+
+public struct PopupCardChromeModifier: ViewModifier {
+    public let cornerRadius: CGFloat
+    public let effectiveTheme: String
+    public let colorScheme: ColorScheme
+
+    public init(
+        cornerRadius: CGFloat = PopupMetrics.cardCornerRadius,
+        effectiveTheme: String,
+        colorScheme: ColorScheme
+    ) {
+        self.cornerRadius = cornerRadius
+        self.effectiveTheme = effectiveTheme
+        self.colorScheme = colorScheme
+    }
+
+    public func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let classicBorderColor: Color = colorScheme == .dark ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
+        return content
+            .background(
+                Group {
+                    if effectiveTheme == "glass" {
+                        LayeredGlassBackground(cornerRadius: cornerRadius, colorScheme: colorScheme)
+                    } else {
+                        shape.fill(
+                            Color(red: colorScheme == .dark ? 0.18 : 0.94,
+                                  green: colorScheme == .dark ? 0.18 : 0.94,
+                                  blue: colorScheme == .dark ? 0.20 : 0.96)
+                        )
+                    }
+                }
+            )
+            .clipShape(shape)
+            .overlay(
+                Group {
+                    if effectiveTheme == "glass" {
+                        LayeredGlassBorder(cornerRadius: cornerRadius, colorScheme: colorScheme)
+                    } else {
+                        shape.stroke(classicBorderColor, lineWidth: 1.0)
+                    }
+                }
+            )
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.14), radius: 10, x: 0, y: 4)
+    }
+}
+
+public extension View {
+    func popupCardChrome(
+        cornerRadius: CGFloat = PopupMetrics.cardCornerRadius,
+        effectiveTheme: String,
+        colorScheme: ColorScheme
+    ) -> some View {
+        modifier(PopupCardChromeModifier(cornerRadius: cornerRadius, effectiveTheme: effectiveTheme, colorScheme: colorScheme))
+    }
+}
+

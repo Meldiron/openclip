@@ -60,7 +60,10 @@ public final class ActionCoordinator: ObservableObject, Sendable {
         await ruleEngine.loadRules(from: rulesURL)
         await extensionManager.loadExtensions(from: extensionsDirectory)
 
-        // 3. Custom action groups
+        // 3. First-class custom actions
+        loadCustomActions()
+
+        // 4. Custom action groups
         loadGroupDefs()
     }
     
@@ -129,6 +132,56 @@ public final class ActionCoordinator: ObservableObject, Sendable {
         if changed {
             actionGroupDefs = updated
             saveAndApplyGroupDefs()
+        }
+    }
+
+    // MARK: - Custom Actions
+
+    public private(set) var customActions: [CustomAction] = []
+
+    public func loadCustomActions() {
+        if let data = settingsStore.get(.customActions),
+           let decoded = try? JSONDecoder().decode([CustomAction].self, from: data) {
+            self.customActions = decoded
+        } else {
+            self.customActions = []
+        }
+        for action in customActions {
+            registry.register(action: action)
+        }
+    }
+
+    public func saveCustomAction(_ action: CustomAction) {
+        var updated = customActions
+        if let idx = updated.firstIndex(where: { $0.id == action.id }) {
+            updated[idx] = action
+        } else {
+            updated.append(action)
+        }
+        persistCustomActions(updated)
+        registry.register(action: action)
+        self.actions = registry.actions
+        syncGroupMemberOrder()
+    }
+
+    public func deleteCustomAction(actionID: String) {
+        var updated = customActions
+        updated.removeAll(where: { $0.id == actionID })
+        persistCustomActions(updated)
+        registry.unregister(actionID: actionID)
+        var disabled = settingsStore.get(.disabledActionIDs)
+        if disabled.contains(actionID) {
+            disabled.remove(actionID)
+            settingsStore.set(.disabledActionIDs, value: disabled)
+        }
+        self.actions = registry.actions
+        syncGroupMemberOrder()
+    }
+
+    private func persistCustomActions(_ actions: [CustomAction]) {
+        self.customActions = actions
+        if let encoded = try? JSONEncoder().encode(actions) {
+            settingsStore.set(.customActions, value: encoded)
         }
     }
 

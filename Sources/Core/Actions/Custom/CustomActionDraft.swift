@@ -6,9 +6,12 @@ import Foundation
 
 public struct CustomActionDraft: Sendable, Equatable {
     public enum Kind: Sendable, Equatable {
-        case webSearch
+        case openURL
         case textSnippet
         case shellScript
+
+        /// Backward compatibility alias
+        public static let webSearch: Kind = .openURL
     }
 
     public var title: String
@@ -20,7 +23,7 @@ public struct CustomActionDraft: Sendable, Equatable {
     public init(
         title: String = "",
         iconName: String = "star",
-        kind: Kind = .webSearch,
+        kind: Kind = .openURL,
         template: String = "",
         replaceSelection: Bool = true
     ) {
@@ -35,8 +38,8 @@ public struct CustomActionDraft: Sendable, Equatable {
         self.title = action.title
         self.iconName = action.iconName
         switch action.type {
-        case .webSearch(let urlTemplate):
-            self.kind = .webSearch
+        case .openURL(let urlTemplate):
+            self.kind = .openURL
             self.template = urlTemplate
             self.replaceSelection = true
         case .textSnippet(let snippet):
@@ -60,8 +63,8 @@ public struct CustomActionDraft: Sendable, Equatable {
         guard isValid else { return nil }
         let type: CustomActionType
         switch kind {
-        case .webSearch:
-            type = .webSearch(urlTemplate: template.trimmingCharacters(in: .whitespacesAndNewlines))
+        case .openURL:
+            type = .openURL(urlTemplate: template.trimmingCharacters(in: .whitespacesAndNewlines))
         case .textSnippet:
             type = .textSnippet(template: template)
         case .shellScript:

@@ -111,8 +111,6 @@ public struct EditActionSheet: View {
             .padding(.top, 14)
             .padding(.bottom, 10)
 
-            Divider()
-
             // Content Area (fits content dynamically)
             VStack(alignment: .leading, spacing: 12) {
                 if let bannerText = configurationBannerText {
@@ -189,7 +187,6 @@ public struct EditActionSheet: View {
                                     }
                                     .pickerStyle(.segmented)
                                     .labelsHidden()
-                                    .frame(width: 240)
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -261,8 +258,6 @@ public struct EditActionSheet: View {
                 }
             }
             .padding(14)
-
-            Divider()
 
             // Footer Action Buttons
             HStack(spacing: 12) {

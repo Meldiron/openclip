@@ -483,7 +483,8 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
 
     func testRetrieveRejectsWhitespaceOnlySelection() async {
         let coordinator = SelectionRetrievalCoordinator(
-            inspect: { Self.textFieldTarget(selectedText: "   \n  ") }
+            inspect: { Self.textFieldTarget(selectedText: "   \n  ") },
+            copyCapture: { _ in nil }
         )
         let policy = AppPolicyContext(retrievalMode: .axTextControl)
         let result = await coordinator.retrieve(

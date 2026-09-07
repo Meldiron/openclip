@@ -8,19 +8,29 @@ import Core
 final class PopupPanelTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
-        TestIsolation.reset()
-        ActionRegistry.shared.register(builtIns: BuiltinRegistry.makeCoreBuiltins())
+        await MainActor.run {
+            for window in NSApp.windows where window is PopupPanel {
+                window.orderOut(nil)
+            }
+            TestIsolation.reset()
+            ActionRegistry.shared.register(builtIns: BuiltinRegistry.makeCoreBuiltins())
+        }
     }
 
     override func tearDown() async throws {
-        TestIsolation.reset()
+        await MainActor.run {
+            for window in NSApp.windows where window is PopupPanel {
+                window.orderOut(nil)
+            }
+            TestIsolation.reset()
+        }
         try await super.tearDown()
     }
 
     func testPopupMetricsConstants() {
-        // Sentinel: the shared height cap stays 300. Lives here (app target) because popup sizing
+        // Sentinel: the shared height cap stays 312. Lives here (app target) because popup sizing
         // constants are UI concerns — see PopupMetrics.
-        XCTAssertEqual(PopupMetrics.popupMaxHeight, 300)
+        XCTAssertEqual(PopupMetrics.popupMaxHeight, 312)
     }
 
     func testToastDurationConstant() {
@@ -151,7 +161,7 @@ final class PopupPanelTests: XCTestCase {
         )
         controller.show(for: context)
         defer { controller.hide() }
-        let panel = try visiblePanel()
+        let panel = try XCTUnwrap(controller.panel)
 
         let barFrame = panel.frame
         XCTAssertGreaterThan(barFrame.height, 0)
@@ -481,7 +491,7 @@ final class PopupPanelTests: XCTestCase {
     /// The visible popup panel for the most recent show; filters out hidden panels left by earlier
     /// tests in the same process (NSApp.windows includes hidden windows).
     private func visiblePanel() throws -> PopupPanel {
-        guard let panel = NSApp.windows.first(where: { $0 is PopupPanel && $0.isVisible }) as? PopupPanel else {
+        guard let panel = NSApp.windows.reversed().first(where: { $0 is PopupPanel && $0.isVisible }) as? PopupPanel else {
             throw XCTSkip("popup panel did not appear")
         }
         return panel
