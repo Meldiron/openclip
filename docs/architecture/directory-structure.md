@@ -35,8 +35,6 @@ Sources/
 │   │   ├── BuiltinRegistry.swift             # Default builtin actions catalog
 │   │   ├── ConfigurableAction.swift          # Configurable action protocol (preferenceIconName)
 │   │   ├── ConfigurationRequest.swift        # Required-option configuration request model
-│   │   ├── Custom/                           # Custom action draft DTO
-│   │   │   └── CustomActionDraft.swift       # Value-type DTO for form editing
 │   │   ├── CustomAction.swift                # Custom action domain model
 │   │   ├── CustomGroupAction.swift           # Custom action group runtime instance
 │   │   ├── DeliveryDecoratedAction.swift     # Pure wrapper stamping a declared ActionDelivery onto an action
@@ -157,7 +155,6 @@ Sources/
     │   ├── InstalledAppsScanner.swift        # Running and installed app scanner
     │   ├── LaunchAtLoginManager.swift        # Login item manager (SMAppService; persisted state via SettingKey.startAtLogin)
     │   ├── MacSelectionMonitor.swift         # Global accessibility selection monitor
-    │   ├── MacTextRetriever.swift            # TextRetrieving facade over SelectionRetrievalCoordinator
     │   ├── OnceResume.swift                  # Exactly-once continuation resume gate (AX read + AppleScript deadline races)
     │   ├── PasteAvailabilityProbe.swift      # AX probe walking Edit ▸ Paste menu items
     │   ├── PasteboardCopyEngine.swift        # Transient pasteboard archive-and-restore copy engine
@@ -179,7 +176,6 @@ Sources/
     │   │   ├── AXMenuNavigator.swift         # Accessibility menu traversal for Edit ▸ Copy/Paste
     │   │   ├── AXTextControlStrategy.swift   # kAXSelectedText read for native text controls
     │   │   ├── AXWebAreaStrategy.swift       # WebKit marker-range read (settle-retry lives in the coordinator)
-    │   │   ├── BrowserScriptStrategy.swift   # AppleScript-bridge page-selection read (Safari/Chromium/Firefox/Arc) + URL
     │   │   ├── CursorClassifier.swift        # Cursor image → CursorClass
     │   │   └── SelectionRetrievalCoordinator.swift # Gate + mode routing + inspect watchdog + deadline-capped Edit ▸ Copy press
     │   └── UnifiedIconProvider.swift         # Unified icon loader and cache

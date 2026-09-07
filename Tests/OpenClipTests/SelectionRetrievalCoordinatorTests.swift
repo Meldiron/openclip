@@ -467,7 +467,6 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
     func testBrowserScriptFallsBackThroughWebAreaThenCopy() async {
         let coordinator = SelectionRetrievalCoordinator(
             inspect: { Self.webAreaTarget(selectedText: "") },
-            browserRead: { _ in nil },
             copyCapture: { _ in TextResult(text: "browser copy fallback") }
         )
         let policy = AppPolicyContext(retrievalMode: .browserScript)
@@ -585,33 +584,11 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
         XCTAssertEqual(result?.text, "copied from preview pdf")
     }
 
-    func testBrowserCascadeOmitsBrowserScript() async {
-        final class Counter: @unchecked Sendable { var calls = 0 }
-        let counter = Counter()
-        let coordinator = SelectionRetrievalCoordinator(
-            inspect: { Self.textFieldTarget(selectedText: nil) },
-            browserRead: { _ in
-                counter.calls += 1
-                return BrowserScriptStrategy.BrowserResult(text: "unexpected script")
-            },
-            copyCapture: { _ in TextResult(text: "copied") }
-        )
-        let policy = AppPolicyContext(retrievalMode: .axWebArea)
-        let result = await coordinator.retrieve(
-            for: AppIdentity(bundleIdentifier: "com.google.Chrome"),
-            policy: policy,
-            cursor: .unknown
-        )
-        XCTAssertEqual(result?.text, "copied")
-        XCTAssertEqual(counter.calls, 0, "Browsers must not invoke browserScript")
-    }
-
     // MARK: - Rich-content enrichment
 
     func testTextOnlyWebAreaWinEnrichesFromPasteboardCapture() async {
         let coordinator = SelectionRetrievalCoordinator(
             inspect: { Self.webAreaTarget(selectedText: "plain selection") },
-            browserRead: { _ in nil },
             copyCapture: { _ in TextResult(text: "rich selection", html: "<b>rich</b> selection") }
         )
         let policy = AppPolicyContext(retrievalMode: .axWebArea)
@@ -670,7 +647,6 @@ final class SelectionRetrievalCoordinatorTests: XCTestCase {
     func testEnrichmentKeepsOriginalWhenCaptureYieldsNoRichContent() async {
         let coordinator = SelectionRetrievalCoordinator(
             inspect: { Self.webAreaTarget(selectedText: "plain selection") },
-            browserRead: { _ in nil },
             copyCapture: { _ in TextResult(text: "plain capture") }
         )
         let policy = AppPolicyContext(retrievalMode: .axWebArea)

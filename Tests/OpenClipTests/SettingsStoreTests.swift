@@ -13,6 +13,11 @@ final class SettingsStoreTests: XCTestCase {
         store = DefaultSettingsStore(userDefaults: userDefaults)
     }
 
+    override func tearDown() {
+        userDefaults?.removePersistentDomain(forName: #file)
+        super.tearDown()
+    }
+
     @MainActor
     func testTypedSettingReadWrite() {
         XCTAssertEqual(store.get(.actionOrder), [])

@@ -329,8 +329,8 @@ areas; stale debt notes are worse than none.
   `ActionCustomizationTests`. Prefer it (or `DefaultSettingsStore(userDefaults: suiteName)`) over
   writing the real preferences domain.
 - **Isolated in-memory test doubles and seams.** Store-backed tests use `MemorySettingsStore`
-  rather than writing the real preferences domain, `SecretActionOptionStoreTests` redirects to a
-  temporary file (`SecretStore.setFileURLForTesting`), and `TextRetrieverTests` injects a stub coordinator,
+  rather than writing the real preferences domain, and `SecretActionOptionStoreTests` redirects to a
+  temporary file (`SecretStore.setFileURLForTesting`),
   eliminating live system pasteboard/keychain mutation during test runs.
 - **Removed slow/flaky/environment-dependent tests:** the Apple Intelligence live-model test
   (`testAppleIntelligenceMatchesPresetPrompts`) made

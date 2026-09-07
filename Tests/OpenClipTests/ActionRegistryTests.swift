@@ -255,9 +255,7 @@ final class ActionRegistryTests: XCTestCase {
         // Regression: with a populated `.actionOrder` that omits a newly registered builtin
         // (e.g. the AI Tools launcher on upgrade), it must slot into the builtin group — after
         // the last ordered builtin and ahead of installed extensions — not the absolute tail.
-        let userDefaults = UserDefaults(suiteName: #file)!
-        userDefaults.removePersistentDomain(forName: #file)
-        let store = DefaultSettingsStore(userDefaults: userDefaults)
+        let store = MemorySettingsStore()
         store.set(.actionOrder, value: ["builtin.search", "builtin.copy", "builtin.reveal_in_finder"])
         let registry = ActionRegistry(settingsStore: store)
 

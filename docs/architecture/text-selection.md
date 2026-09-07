@@ -31,7 +31,7 @@ The subsystem consists of three primary components:
 ```
 
 1. **[`MacSelectionMonitor`](../../Sources/OpenClip/Platform/MacSelectionMonitor.swift)**: Listens for mouse release events (`leftMouseUp`) and keyboard selection gestures (⌘A select-all, ⇧+arrow) and dispatches retrieval.
-2. **[`SelectionRetrievalCoordinator`](../../Sources/OpenClip/Platform/Selection/SelectionRetrievalCoordinator.swift)**: Applies the gate, resolves the app's retrieval mode from [`AppPolicyContext`](../../Sources/Core/Rules/AppRule.swift), and routes to the matching strategy. [`MacTextRetriever`](../../Sources/OpenClip/Platform/MacTextRetriever.swift) is now a thin `TextRetrieving` facade over it.
+2. **[`SelectionRetrievalCoordinator`](../../Sources/OpenClip/Platform/Selection/SelectionRetrievalCoordinator.swift)**: Applies the gate, resolves the app's retrieval mode from [`AppPolicyContext`](../../Sources/Core/Rules/AppRule.swift), and routes to the matching strategy.
 3. **Context assembly**: `MacSelectionMonitor` resolves app rules via [`RuleEngine`](../../Sources/Core/Rules/RuleEngine.swift), builds a [`SelectionContext`](../../Sources/Core/Selection/SelectionContext.swift), and notifies subscriber callbacks (such as `PopupWindowController`).
 
 ---

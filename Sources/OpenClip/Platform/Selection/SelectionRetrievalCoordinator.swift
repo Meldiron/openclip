@@ -12,7 +12,6 @@ import Core
 
 public struct SelectionRetrievalCoordinator: Sendable {
     public typealias TargetProvider = @Sendable () -> AXElementInspector.Target
-    public typealias BrowserReader = @Sendable (String) async -> BrowserScriptStrategy.BrowserResult?
     public typealias CopyTrigger = PasteboardCopyEngine.CopyTrigger
     public typealias CopyCapture = @Sendable (CopyTrigger) async -> TextResult?
     public typealias MenuPress = @Sendable (AXUIElement?) -> Void
@@ -39,7 +38,6 @@ public struct SelectionRetrievalCoordinator: Sendable {
     private static let inspectGate = InspectConcurrencyGate()
 
     private let inspect: TargetProvider
-    private let browserRead: BrowserReader
     private let copyCapture: CopyCapture
     private let menuPress: MenuPress
 
@@ -48,14 +46,10 @@ public struct SelectionRetrievalCoordinator: Sendable {
     /// defaults run live AX).
     public init(
         inspect: @escaping TargetProvider = { AXElementInspector.inspect() },
-        browserRead: @escaping BrowserReader = { bundleIdentifier in
-            await BrowserScriptStrategy.read(bundleIdentifier: bundleIdentifier)
-        },
         copyCapture: @escaping CopyCapture = Self.defaultCopyCapture,
         menuPress: @escaping MenuPress = Self.pressEditCopyMenu
     ) {
         self.inspect = inspect
-        self.browserRead = browserRead
         self.copyCapture = copyCapture
         self.menuPress = menuPress
     }

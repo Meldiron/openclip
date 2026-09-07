@@ -57,7 +57,7 @@ The **authoritative manifest / JS-bridge spec is `Extensions/AGENTS.md`** — re
 ## Tests
  
 - `Tests/OpenClipTests/` is one flat target. Test classes that touch app singletons call `TestIsolation.reset()` in `setUp()`; store-backed tests use `MemorySettingsStore` rather than the real preferences domain.
-- All unit and integration tests are isolated with in-memory test doubles and temporary directories (including `TextRetrieverTests` and `SecretActionOptionStoreTests`), allowing the full suite to run cleanly in headless CI with zero skips.
+- All unit and integration tests are isolated with in-memory test doubles and temporary directories (including `SecretActionOptionStoreTests`), allowing the full suite to run cleanly in headless CI with zero skips.
 
 ## Localization
 

@@ -2689,30 +2689,30 @@
         }
       }
     },
-    "Condense this text to be as concise as possible while keeping all essential information": {
+    "Condense this text to be significantly shorter while keeping all essential information, the original language, and the tone. Preserve the overall formatting such as paragraphs and lists": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在保留全部关键信息的前提下，把文本尽量压缩得更短"
+            "value": "大幅精简这段文本，同时保留所有关键信息、原有语言和语气。保持段落、列表等整体格式"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在保留所有關鍵資訊的前提下，將文字濃縮得盡可能簡短"
+            "value": "大幅精簡這段文字，同時保留所有關鍵資訊、原有語言與語氣。保持段落、清單等整體格式"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condenser ce texte pour le rendre aussi concis que possible tout en conservant toutes les informations essentielles"
+            "value": "Condenser ce texte pour le rendre nettement plus court tout en conservant toutes les informations essentielles, la langue d’origine et le ton. Préserver la mise en forme générale (paragraphes, listes)"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "すべての重要な情報を残しながら、このテキストをできるだけ簡潔にまとめます"
+            "value": "すべての重要な情報、元の言語、トーンを保ちながら、このテキストを大幅に短縮します。段落やリストなどの全体的な書式は保持してください"
           }
         }
       }
@@ -4285,30 +4285,30 @@
         }
       }
     },
-    "Explain the core concept clearly and concisely in simple terms": {
+    "Explain what the text means in clear, simple language, in the same language as the text. Cover the core idea and any important details a beginner would need": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用简单的语言清晰、简洁地解释核心概念"
+            "value": "用与原文相同的语言，以清晰简单的措辞解释这段文本的含义。涵盖核心概念以及初学者需要了解的重要细节"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "用簡單易懂的文字清晰簡潔地解釋核心概念"
+            "value": "使用與原文相同的語言，以清晰簡單的文字解釋這段文字的含義。涵蓋核心概念以及初學者需要知道的重要細節"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Expliquer le concept principal de manière claire, concise et en termes simples"
+            "value": "Expliquer ce que signifie le texte dans un langage clair et simple, dans la même langue que le texte. Couvrir l’idée principale et les détails importants qu’un débutant devrait connaître"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "核心となる概念をわかりやすい言葉で明確かつ簡潔に説明します"
+            "value": "テキストと同じ言語で、わかりやすい言葉でテキストの意味を説明します。核心的な考え方と、初心者に必要な重要な詳細をカバーしてください"
           }
         }
       }
@@ -4621,58 +4621,58 @@
         }
       }
     },
-    "Fix all spelling, punctuation, and grammatical errors while preserving the original wording, tone, and formatting": {
+    "Fix all spelling, punctuation, and grammar errors with the smallest possible changes. Preserve the original wording, tone, and formatting — do not rewrite or rephrase sentences": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在保留原文用词、语气和格式的前提下，修正所有拼写、标点和语法错误"
+            "value": "以尽可能小的改动修正所有拼写、标点和语法错误。保留原文的用词、语气和格式——不要重写或改写句子"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在保留原本用詞、語氣與格式的前提下，修正所有拼字、標點符號與文法錯誤"
+            "value": "以盡可能小的改動修正所有拼字、標點符號與文法錯誤。保留原本用詞、語氣與格式——不要重寫或改寫句子"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Corriger toutes les fautes d’orthographe, de ponctuation et de grammaire tout en préservant le texte original, le ton et la mise en forme"
+            "value": "Corriger toutes les fautes d’orthographe, de ponctuation et de grammaire avec le minimum de modifications. Préserver le texte original, le ton et la mise en forme — ne pas réécrire ni reformuler les phrases"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "元の言い回し、トーン、書式を保ちながら、すべてのスペルミス、句読点、文法エラーを修正します"
+            "value": "可能な限り最小限の変更で、すべてのスペル、句読点、文法のエラーを修正します。元の表現、トーン、書式を保持し、文を書き直したり言い換えたりしないでください"
           }
         }
       }
     },
-    "Fix bugs, syntax errors, and logic issues in this code snippet. Return only the raw working code without markdown code blocks or explanations": {
+    "Fix bugs, syntax errors, and logic issues in this code. Keep the same programming language, style, and structure, and change as little as possible. Return only the raw working code — no markdown code fences, no explanations": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "修复这段代码中的缺陷、语法错误和逻辑问题。只返回可运行的原始代码，不要 markdown 代码块或解释"
+            "value": "修复这段代码中的错误、语法问题和逻辑缺陷。保持相同的编程语言、风格和结构，改动尽可能少。只返回可运行的原始代码——不要 markdown 代码块，不要解释"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "修復此程式碼片段中的錯誤、語法錯誤與邏輯問題。僅傳回可執行的原始程式碼，不要包含 markdown 程式碼區塊或說明"
+            "value": "修復這段程式碼中的錯誤、語法問題與邏輯缺陷。保持相同的程式語言、風格與結構，改動盡可能少。只返回可運行的原始程式碼——不要 markdown 程式碼區塊，不要解釋"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Corriger les bugs, les erreurs de syntaxe et les problèmes de logique dans cet extrait de code. Renvoyer uniquement le code fonctionnel brut sans blocs de code markdown ni explications"
+            "value": "Corriger les bugs, les erreurs de syntaxe et les problèmes de logique dans ce code. Conserver le même langage de programmation, le même style et la même structure, avec le minimum de modifications. Renvoyer uniquement le code brut fonctionnel — sans blocs de code markdown ni explications"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このコードスニペットのバグ、構文エラー、論理的な問題を修正します。Markdownのコードブロックや説明は含めず、実行可能なコードのみを返してください"
+            "value": "このコードのバグ、構文エラー、論理の問題を修正します。同じプログラミング言語、スタイル、構造を保ち、変更は最小限にしてください。動作する生のコードのみを返してください — markdownのコードブロックや説明は不要です"
           }
         }
       }
@@ -8373,30 +8373,30 @@
         }
       }
     },
-    "Provide a concise bulleted summary capturing the key points": {
+    "Provide a concise bulleted summary of the key points, in the same language as the text. Include only essential information — no introduction or closing remarks": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用简洁的条目概括要点"
+            "value": "用与原文相同的语言，以简洁的要点列表总结关键内容。只保留必要信息——不要开场白或结束语"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "以精簡的項目符號摘要列出重點"
+            "value": "使用與原文相同的語言，以簡潔的條列式摘要列出重點。只保留必要資訊——不要開場白或結語"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fournir un résumé concis sous forme de liste à puces reprenant les points clés"
+            "value": "Fournir un résumé concis des points clés sous forme de liste à puces, dans la même langue que le texte. N’inclure que l’essentiel — sans introduction ni conclusion"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "要点を簡潔な箇条書きでまとめます"
+            "value": "テキストと同じ言語で、要点を簡潔な箇条書きで要約します。重要な情報のみを含め、導入や結びの言葉は付けないでください"
           }
         }
       }
@@ -9241,58 +9241,58 @@
         }
       }
     },
-    "Rewrite this text in a polished, professional, and formal tone": {
+    "Rewrite this text in a polished, professional, and formal tone. Keep the original meaning, language, and formatting; replace slang, contractions, and casual phrasing with formal equivalents": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "用更得体、专业、正式的语气改写这段文本"
+            "value": "用更得体、专业、正式的语气改写这段文本。保持原意、语言和格式；将俚语、缩写和随意措辞替换为正式表达"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "以得體、專業且正式的語氣改寫這段文字"
+            "value": "以得體、專業且正式的語氣改寫這段文字。保持原意、語言與格式；將俚語、縮寫和隨意措辭替換為正式表達"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réécrire ce texte dans un ton soigné, professionnel et formel"
+            "value": "Réécrire ce texte dans un ton soigné, professionnel et formel. Conserver le sens, la langue et la mise en forme d’origine ; remplacer l’argot, les contractions et les tournures familières par des équivalents formels"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "洗練されたプロフェッショナルでフォーマルなトーンにテキストを書き直します"
+            "value": "洗練されたプロフェッショナルでフォーマルなトーンにこのテキストを書き直します。元の意味、言語、書式を保持し、スラング、短縮形、カジュアルな表現をフォーマルな表現に置き換えてください"
           }
         }
       }
     },
-    "Rewrite to improve clarity, flow, and vocabulary while keeping the original meaning and language": {
+    "Rewrite to improve clarity, flow, and word choice while keeping the original meaning, tone, language, and formatting": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "在保持原意和语言的前提下，提升清晰度、流畅度和用词"
+            "value": "在保持原意、语气、语言和格式的前提下改写，提升清晰度、流畅度和用词"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "在維持原本語意與語言的前提下，改善清晰度、流暢度與用詞"
+            "value": "在維持原意、語氣、語言與格式的前提下改寫，提升清晰度、流暢度與用詞"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Réécrire pour améliorer la clarté, la fluidité et le vocabulaire tout en conservant le sens et la langue d’origine"
+            "value": "Réécrire pour améliorer la clarté, la fluidité et le choix des mots tout en conservant le sens, le ton, la langue et la mise en forme d’origine"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "元の意味と言語を維持しながら、明瞭さ、文章の流れ、語彙を改善するように書き直します"
+            "value": "元の意味、トーン、言語、書式を保ちながら、明瞭さ、文章の流れ、語彙の選択を改善するように書き直します"
           }
         }
       }
@@ -10865,254 +10865,30 @@
         }
       }
     },
-    "Translate the text accurately into natural English": {
+    "Translate the text accurately into natural English, preserving the original meaning, tone, and formatting": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将文本准确翻译成自然流畅的英文"
+            "value": "将文本准确翻译成自然流畅的简体中文，保留原意、语气和格式；如果文本已经是简体中文，则翻译成自然流畅的英文"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的英文"
+            "value": "將文字準確翻譯為自然流暢的繁體中文，保留原意、語氣與格式；如果文字已是繁體中文，則翻譯為自然流暢的英文"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Traduire fidèlement le texte dans un anglais naturel"
+            "value": "Traduire fidèlement le texte dans un français naturel, en préservant le sens, le ton et la mise en forme d’origine ; si le texte est déjà en français, le traduire dans un anglais naturel"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "テキストを自然な英語に正確に翻訳します"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural French (français)": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的法语"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的法文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un français naturel"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然なフランス語に正確に翻訳します"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural French, or into natural English if the text is already in French": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的法语，如果文本已是法语则翻译为英文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的法文，若文字已是法文則翻譯為英文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un français naturel, ou en anglais si le texte est déjà en français"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然なフランス語に正確に翻訳してください。テキストがすでにフランス語の場合は英語に翻訳してください"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Japanese (日本語)": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的日语"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的日文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un japonais naturel"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な日本語に正確に翻訳します"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Japanese, or into natural English if the text is already in Japanese": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的日语，如果文本已是日语则翻译为英文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的日文，若文字已是日文則翻譯為英文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un japonais naturel, ou en anglais si le texte est déjà en japonais"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な日本語に正確に翻訳してください。テキストがすでに日本語の場合は英語に翻訳してください"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Simplified Chinese (简体中文)": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的简体中文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的簡體中文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un chinois simplifié naturel"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な簡体字中国語に正確に翻訳します"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Simplified Chinese, or into natural English if the text is already in Chinese": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的简体中文，如果文本已是中文则翻译为英文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的簡體中文，若文字已是中文則翻譯為英文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un chinois simplifié naturel, ou en anglais si le texte est déjà en chinois"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な簡体字中国語に正確に翻訳してください。テキストがすでに中国語の場合は英語に翻訳してください"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Traditional Chinese (繁體中文)": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的繁体中文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的繁體中文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un chinois traditionnel naturel"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な繁体字中国語に正確に翻訳します"
-          }
-        }
-      }
-    },
-    "Translate the text accurately into natural Traditional Chinese, or into natural English if the text is already in Chinese": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "将文本准确翻译成自然流畅的繁体中文，如果文本已是中文则翻译为英文"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "將文字準確翻譯為自然流暢的繁體中文，若文字已是中文則翻譯為英文"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Traduire fidèlement le texte dans un chinois traditionnel naturel, ou en anglais si le texte est déjà en chinois"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "テキストを自然な繁体字中国語に正確に翻訳してください。テキストがすでに中国語の場合は英語に翻訳してください"
+            "value": "テキストを自然な日本語に正確に翻訳し、元の意味、トーン、書式を保持してください。テキストがすでに日本語の場合は、自然な英語に翻訳してください"
           }
         }
       }
