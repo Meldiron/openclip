@@ -4,10 +4,57 @@ All notable user-facing changes, feature additions, and improvements to OpenClip
 
 ---
 
-## Unreleased
+## v1.4.0 - 2026-09-07
 
-### Fixes & Stability
-- **Paste Probe Starvation**: A blocked or slow target app does not change all paste operations to copy. Probes have a limit. Permits become free at the time limit ([#37](https://github.com/ganeshmshetty/openclip/issues/37)).
+### Highlights
+- **Visual Before-and-After Text Diffs**: An interactive diff view embedded in result cards highlights additions and deletions for text-transforming actions, enabling immediate visual verification prior to applying or copying changes.
+- **Screen-Space Floating Tooltips**: Tooltips now render within a dedicated screen-space overlay panel, ensuring unobstructed action descriptions that dynamically adapt to screen boundaries without clipping.
+- **Palette Row Keyboard Shortcuts**: Actions can now be triggered directly from the floating palette using dedicated number (⌘1–⌘9) and alphanumeric keyboard shortcuts.
+- **Preferences & Action Configuration Improvements**: The action settings editor now remains open during navigation, and minimized Preferences windows restore reliably from the macOS Dock.
+- **Process Lifecycle & Cleanup Safety**: The extension runtime watchdog terminates full descendant process trees when execution limits are exceeded, preventing orphaned background processes.
+- **Hardened AI Presets & Guardrails**: System prompts now enforce strict boundaries against prompt injection within user selections, accompanied by tuned default presets.
+
+### Detailed Improvements
+
+#### Result Cards & Diff Engine
+- **Myers Text Diff Engine**: Implemented an in-memory diff engine (`TextDiff.swift`) providing fast, precise word-level and line-level delta computations.
+- **Visual Diff Inspection**: Integrated inline and side-by-side diff views in `ResultCardView`, complete with color-coded additions and deletions, accessible indicator badges, and one-click replacement.
+- **Keyboard Navigation**: Standardized keyboard interaction (`Enter` to apply changes, `Escape` to dismiss) with smooth transitions.
+
+#### Popup Interface & Tooltips
+- **Screen-Space Overlay Panel**: Moved action tooltips into an independent `TooltipPanelController` that tracks action buttons without edge-clipping against window bounds ([#62](https://github.com/ganeshmshetty/openclip/issues/62)).
+- **Adaptive Screen Placement**: Implemented boundary-aware positioning (`TooltipPlacement`) that dynamically aligns tooltips above or below the floating bar based on visible screen margins.
+- **Direct Palette Shortcuts**: Bound alphanumeric and numbered shortcuts directly to palette rows (`PaletteRowShortcuts`) for rapid-fire action execution.
+
+#### Preferences & Action Management
+- **Action Editor Persistence**: Maintained active action settings popovers during outline list navigation and item selection ([#61](https://github.com/ganeshmshetty/openclip/pull/61) by [@Meldiron](https://github.com/Meldiron)).
+- **Dock Unminimize Window Reuse**: Minimized Settings windows now cleanly restore focus when requested from the status bar menu rather than stalling or duplicating ([#60](https://github.com/ganeshmshetty/openclip/pull/60) by [@binjto-boop](https://github.com/binjto-boop)).
+- **Group Separation**: Differentiated extension-bundled action groups from user-defined custom groups in the configuration hierarchy.
+- **Glyph Icon State**: Corrected persistence for "Show Icon" mode across text-glyph builtin actions.
+
+#### Extension Runtime & Reliability
+- **Descendant Process Termination**: Upgraded `ShellProcessRunner` watchdog to traverse child process trees and send `SIGKILL` signals to all descendant processes upon timeout ([#54](https://github.com/ganeshmshetty/openclip/pull/54) by [@md786-dotcom](https://github.com/md786-dotcom), closing [#35](https://github.com/ganeshmshetty/openclip/issues/35)).
+- **Subtree Traversal Performance**: Optimized descendant lookups by walking only the child subtree and isolated PID tracking to temporary directories.
+- **Developer Tooling**: Enhanced `dev_run.sh` to immediately launch the freshly compiled binary from DerivedData ([@Meldiron](https://github.com/Meldiron)).
+
+#### AI Integration & Security
+- **Prompt Injection Defense**: Hardened the `AIProvider` system prompt with an explicit boundary instruction, ensuring language models treat input text strictly as data and ignore embedded instructions.
+- **Refined Presets**: Polished default prompt templates for Proofread, Rewrite, Summarize, Explain, Translate, Fix Code, Make Shorter, and Formal Tone, with code and tone presets enabled by default.
+- **Multilingual Localization**: Updated string catalogs across English, French, Japanese, Simplified Chinese, and Traditional Chinese.
+
+#### Performance & Selection Stability
+- **Paste Probe Starvation Recovery**: Bounded AX menu traversal with aggregate deadlines and freed paste-probe permits at the deadline to prevent hung or slow applications from starving paste operations ([#37](https://github.com/ganeshmshetty/openclip/issues/37), [#66](https://github.com/ganeshmshetty/openclip/pull/66) by [@md786-dotcom](https://github.com/md786-dotcom)).
+- **Zero Idle CPU**: Eliminated animation timer wakeups during toast alert dismissals.
+- **Selection Permit Resilience**: Resolved inspect-gate permit retention when an application intercepts or blocks an `Edit ▸ Copy` event ([#36](https://github.com/ganeshmshetty/openclip/issues/36)).
+- **Hermetic Test Suite**: Refactored the test suite for complete isolation, eliminated shared state leakage, and removed obsolete legacy test suites.
+
+### Contributors
+This release was made possible by contributions from the open-source community, including several first-time contributors:
+
+- **Matej Bačo ([@Meldiron](https://github.com/Meldiron))** — Contributed key usability improvements to the action configuration workflow in Preferences ([#61](https://github.com/ganeshmshetty/openclip/pull/61)), preventing unexpected auto-dismissal of the editor popover while managing actions, as well as developer workflow enhancements in `dev_run.sh`.
+- **Jtobin ([@binjto-boop](https://github.com/binjto-boop))** — Resolved Settings window minimization handling on macOS ([#60](https://github.com/ganeshmshetty/openclip/pull/60)), ensuring windows restore focus reliably from the Dock.
+- **[@md786-dotcom](https://github.com/md786-dotcom)** — Implemented deep descendant process termination in the runtime watchdog ([#54](https://github.com/ganeshmshetty/openclip/pull/54), [#35](https://github.com/ganeshmshetty/openclip/issues/35)) and resolved paste probe starvation with deadline recovery ([#66](https://github.com/ganeshmshetty/openclip/pull/66), [#37](https://github.com/ganeshmshetty/openclip/issues/37)).
+- **Ganesh M ([@ganeshmshetty](https://github.com/ganeshmshetty))** — Result card diffing engine, floating tooltip panels, AI hardening and presets refinement, and test suite refactoring.
 
 ---
 
