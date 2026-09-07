@@ -53,6 +53,27 @@ content area. With a 128 pt icon the graphic spans ±64 pt around the centre and
 draws the label just below it, so the background must leave roughly y = 146…296 clear
 across both icon columns.
 
+### Hidden items and the horizontal scroll bar
+
+A styled image carries two invisible items at its root: `.background/` (holding the image)
+and `.VolumeIcon.icns`. `create-dmg` parks them at `window_right + 100` to keep them out of
+sight, but Finder still counts them towards the scrollable area — so anyone browsing with
+hidden files shown (**Cmd-Shift-.**) gets a horizontal scroll bar across the bottom of an
+otherwise finished-looking window.
+
+`make_dmg.sh` therefore pins both with explicit `--icon` flags, in the **same two columns as
+the real icons** (`APP_X` and `DROP_X`, at `HIDDEN_Y`). Reusing those columns is deliberate:
+
+- An item further right widens the content box and the scroll bar comes back.
+- An item nearer the left edge makes Finder nudge *every* icon inwards to fit the label
+  cell — placing one at x = 80 shifted all four icons 25 pt right, sliding the app and the
+  drop link out of alignment with the artwork behind them.
+
+Finder resolves invisible items by name in AppleScript even though it will not enumerate
+them, which is why `--icon ".background" …` works at all. With hidden files shown the two
+icons sit above the app and the folder; that is the cost of keeping the window scroll-free,
+and it is invisible in the default Finder configuration.
+
 ### Why the window is taller than the canvas
 
 Finder draws the background at its **natural size**, anchored to the top-left of the
@@ -101,5 +122,23 @@ end tell'
 ```
 
 That should report bounds `{200, 120, 860, 568}` (a 660 × 448 window), icon size `128`, and
-positions `{170, 210}` and `{490, 210}`. Open it with the Finder tab bar both on and off and
-confirm neither state shows a scroll bar.
+positions `{170, 210}` and `{490, 210}`.
+
+The invisible items do not show up there, so read their saved positions straight out of the
+`.DS_Store` — this is the check that catches a returning scroll bar:
+
+```bash
+python3 - <<'EOF'
+import re, struct
+d = open('/Volumes/OpenClip/.DS_Store', 'rb').read()
+for name in ['.background', '.VolumeIcon.icns', 'OpenClip.app', 'Applications']:
+    for m in re.finditer(re.escape(name.encode('utf-16-be')), d):
+        tail = d[m.end():m.end() + 40]
+        if tail[:4] == b'Iloc':
+            print(name, struct.unpack('>ii', tail[12:20]))
+EOF
+```
+
+Every x must come back under `660 - 64`, and every y under `384 - 84`. Then open the image
+four ways — Finder tab bar on and off, hidden files shown and not — and confirm none of them
+shows a scroll bar.

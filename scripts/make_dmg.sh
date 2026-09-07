@@ -44,6 +44,15 @@ ICON_Y=210
 APP_X=170
 DROP_X=490
 
+# create-dmg parks every hidden item at (window_right + 100) so it sits outside the window.
+# Finder still counts it towards the scrollable area, which puts a horizontal scroll bar on
+# the window for anyone browsing with hidden files shown (Cmd-Shift-.). Pinning them inside
+# the canvas instead keeps the window scroll-free in both states; Finder resolves invisible
+# items by name even when it will not enumerate them.
+# They reuse the two real icon columns: an item further out would widen the content box, and
+# one nearer the edge makes Finder nudge every icon inwards to fit its label cell.
+HIDDEN_Y=90
+
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -86,6 +95,8 @@ create-dmg \
     --icon-size "$ICON_SIZE" \
     --text-size "$TEXT_SIZE" \
     --icon "$APP_NAME" "$APP_X" "$ICON_Y" \
+    --icon ".background" "$APP_X" "$HIDDEN_Y" \
+    --icon ".VolumeIcon.icns" "$DROP_X" "$HIDDEN_Y" \
     --hide-extension "$APP_NAME" \
     --app-drop-link "$DROP_X" "$ICON_Y" \
     --format UDZO \
