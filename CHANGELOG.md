@@ -4,6 +4,13 @@ All notable user-facing changes, feature additions, and improvements to OpenClip
 
 ---
 
+## Unreleased
+
+### Fixes & Stability
+- **Paste Probe Starvation**: A blocked or slow target app does not change all paste operations to copy. Probes have a limit. Permits become free at the time limit ([#37](https://github.com/ganeshmshetty/openclip/issues/37)).
+
+---
+
 ## v1.3.1 - 2026-09-05
 
 ### Features & Improvements

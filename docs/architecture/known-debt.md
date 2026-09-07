@@ -227,7 +227,7 @@ areas; stale debt notes are worse than none.
 
 ## Concurrency
 
-- **Residual non-interruptible paths (documented).** Two spots remain that a hostile
+- **Residual non-interruptible paths (documented).** Three spots remain that a hostile
   or hung target can make block a background thread:
   (1) `SelectionRetrievalCoordinator.pressEditCopyMenu` starts an AXPress on the dedicated
   `com.openclip.ax-inspect` queue. The `pasteboardCopyTimeout` poll does not stop that press.
@@ -239,8 +239,13 @@ areas; stale debt notes are worse than none.
   later retrieval requests (see below);
   (2) an async-mode
   JS script with a top-level *synchronous* infinite loop blocks inside `evaluateScript`, which the
-  watchdog pump loop never reaches (the sync-evaluation gate covers only `isAsync == false`).
-  Neither path is main-actor-blocking.
+  watchdog pump loop never reaches (the sync-evaluation gate covers only `isAsync == false`);
+  (3) `PasteAvailabilityProbe.editPasteEnabled` walks the menu bar up to an aggregate deadline
+  passed through `AXMenuNavigator.findMenuItem`. Each AX message also has a per-call limit of
+  `axReadTimeout`. An abandoned walk stops at `pasteProbeTimeout` (or upon completing an in-flight message),
+  so workers do not linger for minutes on the queue. The counting gate releases its permit at the deadline
+  (issue #37) so subsequent probes are never delayed.
+  These paths do not block the main actor.
 - **AX inspect is deadline-capped.** `SelectionRetrievalCoordinator.inspectWithWatchdog` races
   `AXElementInspector.inspect` against
   `Constants.axReadTimeout` (0.5 s) via the `OnceResume` once-gate, running the blocking snapshot on
@@ -258,8 +263,11 @@ areas; stale debt notes are worse than none.
   `com.openclip.ax-inspect` queue: a hung AX call occupies one worker thread but later inspect
   snapshots and presses start on other threads, so a slow or stuck target no longer delays the next
   request's start. Each request still gets its own `axReadTimeout` deadline race.
-  (`PasteAvailabilityProbe` deliberately keeps its own `ax-probe` queue plus a
-  probe-slot gate so a stalled probe never spawns extra blocked workers.)
+  `PasteAvailabilityProbe` uses the same design (issue #37): a concurrent
+  `com.openclip.ax-probe` queue and a counting gate (`Constants.pasteProbeMaxConcurrent`, 4).
+  The side that ends the wait releases the permit at `pasteProbeTimeout`.
+  The old `probeSlot` stayed occupied until the blocked AX walk returned.
+  That stopped every later probe and changed all paste operations to copy.
 - **Subprocess pipe reads are non-blocking (hang fix).** `ShellProcessRunner` previously read stdout/
   stderr with blocking `readToEnd()` tasks and a `Task.sleep` watchdog — both can be starved, so a
   child (or grandchild) holding a pipe open could wedge the cooperative pool and hang the test
