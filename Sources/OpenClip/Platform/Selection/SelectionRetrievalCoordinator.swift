@@ -333,7 +333,7 @@ public struct SelectionRetrievalCoordinator: Sendable {
                 try? await Task.sleep(nanoseconds: UInt64(Constants.axReadTimeout * 1_000_000_000))
                 if resume.resume(continuation, with: nil) {
                     Task.detached { await Self.inspectGate.release() }
-                    Log.selection.debug("coordinator: AX inspect exceeded \(Constants.axReadTimeout)s deadline; returning nil")
+                    Log.selection.debug("coordinator: AX inspect exceeded \(Constants.axReadTimeout, privacy: .public)s deadline; returning nil")
                 }
             })
 
@@ -405,7 +405,7 @@ public struct SelectionRetrievalCoordinator: Sendable {
                 try? await Task.sleep(nanoseconds: UInt64(Constants.axReadTimeout * 1_000_000_000))
                 if resume.resume(continuation, with: ()) {
                     Task.detached { await inspectGate.release() }
-                    Log.selection.debug("coordinator: Edit ▸ Copy press exceeded \(Constants.axReadTimeout)s deadline; releasing inspect gate")
+                    Log.selection.debug("coordinator: Edit ▸ Copy press exceeded \(Constants.axReadTimeout, privacy: .public)s deadline; releasing inspect gate")
                 }
             })
 

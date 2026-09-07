@@ -103,6 +103,10 @@ public enum Constants {
     /// unresponsive target app can never hang delivery. On timeout the probe returns "unknown",
     /// which the delivery decision treats as cannot-paste (copy).
     public static let pasteProbeTimeout: TimeInterval = 0.4
+    /// Maximum number of paste-availability probes that can run at the same time.
+    /// The probe has its own limit because a hotkey can start a probe and a selection inspect together.
+    /// A permit is released at `pasteProbeTimeout`. A blocked AX worker does not keep the permit (issue #37).
+    public static let pasteProbeMaxConcurrent: Int = 4
 
     /// Hard deadline (seconds) for the browser-script retrieval bridge to return a selection.
     public static let browserScriptTimeout: TimeInterval = 1.0
