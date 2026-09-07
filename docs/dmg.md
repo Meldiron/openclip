@@ -6,9 +6,11 @@ drop link to `/Applications` on the right, and an arrow between them. It is prod
 call, so local packaging and CI releases always emit the same layout.
 
 ```bash
-brew install create-dmg                                 # one-time
 ./scripts/make_dmg.sh /path/to/OpenClip.app build/OpenClip.dmg
 ```
+
+There is nothing to install first. The script uses [`dmgbuild`](https://dmgbuild.readthedocs.io),
+and bootstraps it into `build/.dmg-venv` on first run if it is not already on `PATH`.
 
 ## Editing the background
 
@@ -20,7 +22,7 @@ diff stays reviewable.
 `scripts/render_html_png.swift` rasterises it through WebKit at exact pixel dimensions:
 
 ```bash
-swift scripts/render_html_png.swift assets/dmg/background.html /tmp/bg.png 660 420 2
+swift scripts/render_html_png.swift assets/dmg/background.html /tmp/bg.png 660 380 2
 ```
 
 The renderer takes `<input> <output.png> <width> <height> [scale]` and accepts any HTML or
@@ -28,8 +30,8 @@ SVG file, so it is also the right tool for other generated art in this repo.
 
 `make_dmg.sh` renders at 1× and 2×, then merges both into one multi-representation TIFF
 with `tiffutil -cathidpicheck`. Finder picks the 2× rendition on Retina displays, which is
-what keeps the background from looking soft — a single 660×420 PNG is blurry on every
-modern Mac, and a plain 1320×840 PNG is drawn at double size.
+what keeps the background from looking soft — a single 660×380 PNG is blurry on every
+modern Mac, and a plain 1320×760 PNG is drawn at double size.
 
 ## Layout contract
 
@@ -53,41 +55,59 @@ content area. With a 128 pt icon the graphic spans ±64 pt around the centre and
 draws the label just below it, so the background must leave roughly y = 146…296 clear
 across both icon columns.
 
-### Hidden items and the horizontal scroll bar
+## Why dmgbuild and not create-dmg
 
-A styled image carries two invisible items at its root: `.background/` (holding the image)
-and `.VolumeIcon.icns`. `create-dmg` parks them at `window_right + 100` to keep them out of
-sight, but Finder still counts them towards the scrollable area — so anyone browsing with
-hidden files shown (**Cmd-Shift-.**) gets a horizontal scroll bar across the bottom of an
-otherwise finished-looking window.
+`create-dmg` styles a disk image by mounting it and driving Finder over AppleScript. That
+needs a GUI session on the build machine, costs a fixed sleep plus a retry loop for "Resource
+busy", and — the reason this repo moved off it — it writes an icon position for **every**
+item on the volume, hidden ones included:
 
-`make_dmg.sh` therefore pins both with explicit `--icon` flags, in the **same two columns as
-the real icons** (`APP_X` and `DROP_X`, at `HIDDEN_Y`). Reusing those columns is deliberate:
+```applescript
+set position of every item to {theBottomRightX + 100, 100}
+```
 
-- An item further right widens the content box and the scroll bar comes back.
-- An item nearer the left edge makes Finder nudge *every* icon inwards to fit the label
-  cell — placing one at x = 80 shifted all four icons 25 pt right, sliding the app and the
-  drop link out of alignment with the artwork behind them.
+Parking `.background` and `.VolumeIcon.icns` outside the window keeps them out of sight, but
+Finder still counts them towards the scrollable area. Anyone browsing with hidden files shown
+(**Cmd-Shift-.**) gets a horizontal scroll bar across the bottom of an otherwise finished
+window. Repositioning them inside the window trades that for two stray icons sitting on the
+artwork, and moving one near the left edge makes Finder nudge every icon inwards to fit its
+label cell — which slides the app and the drop link out of alignment with the background.
 
-Finder resolves invisible items by name in AppleScript even though it will not enumerate
-them, which is why `--icon ".background" …` works at all. With hidden files shown the two
-icons sit above the app and the folder; that is the cost of keeping the window scroll-free,
-and it is invisible in the default Finder configuration.
+No shipping DMG does either. Reading the `.DS_Store` of The Unarchiver, Steam, Minecraft,
+Grammarly, Annotate and TrackWeight, every one of them stores positions for the app and the
+`Applications` link and **nothing else**. An item with no saved position is auto-placed by
+Finder in a free grid slot inside the window, so it can never widen the content box.
 
-### Why the window is taller than the canvas
+`dmgbuild` reproduces that exactly. It writes the `.DS_Store` directly through the `ds_store`
+and `mac_alias` modules instead of driving Finder, so only the entries listed in
+`icon_locations` get a position, and the build needs no GUI session at all — which also makes
+the release workflow deterministic.
+
+Two dmgbuild details worth knowing:
+
+- `window_rect` is in **bottom-up Cocoa coordinates**. A small y puts the window near the
+  bottom of the screen; the settings file passes `y = 100000` so Finder clamps it to the top,
+  which is the one placement that is consistent across display sizes.
+- The background lands at `/.background.tiff` (a hidden file at the volume root), not in a
+  `.background/` folder as `create-dmg` does.
+
+## Why the window is taller than the canvas
 
 Finder draws the background at its **natural size**, anchored to the top-left of the
 content area — it never scales it. If the image is larger than that area, the window gets
 scroll bars, which is the single most common way a styled DMG ends up looking broken.
 
-`--window-size` covers the whole window frame, and Finder chrome eats into it: a 28 pt
-title bar always, plus a ~36 pt tab bar for anyone who leaves **View → Show Tab Bar** on.
-That setting belongs to the person opening the DMG, so the safe move is to size the window
-for the worst case (`CHROME_H = 68`) and let the canvas be shorter than the content area.
+`window_rect` covers the whole window frame, and Finder chrome eats into it: a 28 pt title
+bar always, plus a ~36 pt tab bar for anyone who leaves **View → Show Tab Bar** on. That
+setting belongs to the person opening the DMG, so the safe move is to size the window for the
+worst case (`CHROME_H = 68`) and let the canvas be shorter than the content area.
 
 The leftover margin is then covered by Finder's own white icon-view background, which is
 why **the canvas must bleed to pure white at its outer edges**. Keep the tint and texture
 away from the border; a coloured edge turns that margin into a visible seam.
+
+None of the shipping DMGs above compensate for this — Annotate's background is 660 × 400
+inside a 660 × 400 window — so they scroll vertically for anyone with the tab bar enabled.
 
 ## Design rules
 
@@ -99,46 +119,40 @@ away from the border; a coloured edge turns that margin into a visible seam.
   dark background makes the "OpenClip" and "Applications" labels unreadable in Dark Mode.
 - The volume icon is generated from `assets/app-icon.png` via `sips` + `iconutil`, so the
   mounted volume shows the app's icon in the Finder sidebar and on the desktop.
-- The window is intentionally free of a toolbar and status bar, and the app's `.app`
-  extension is hidden, so the window reads as a single instruction rather than a folder.
+- The window is intentionally free of a toolbar, status bar, path bar and sidebar, and the
+  app's `.app` extension is hidden, so the window reads as a single instruction rather than
+  a folder.
 
 ## Verifying a change
-
-`create-dmg` drives Finder over AppleScript, so the layout is only really confirmed by
-mounting the result:
 
 ```bash
 ./scripts/make_dmg.sh /path/to/OpenClip.app /tmp/OpenClip.dmg
 open /tmp/OpenClip.dmg
-```
-
-To check the saved view settings without eyeballing them:
-
-```bash
 osascript -e 'tell application "Finder" to tell disk "OpenClip"
   {bounds of container window, icon size of icon view options of container window,
    position of item "OpenClip.app", position of item "Applications"}
 end tell'
 ```
 
-That should report bounds `{200, 120, 860, 568}` (a 660 × 448 window), icon size `128`, and
-positions `{170, 210}` and `{490, 210}`.
+Bounds should be 660 × 448, icon size `128`, positions `{170, 210}` and `{490, 210}`.
 
-The invisible items do not show up there, so read their saved positions straight out of the
-`.DS_Store` — this is the check that catches a returning scroll bar:
+Finder will not enumerate the hidden items, so read the saved positions straight out of the
+`.DS_Store` — this is the check that catches a returning scroll bar. Only the app and the
+`Applications` link may appear:
 
 ```bash
 python3 - <<'EOF'
 import re, struct
 d = open('/Volumes/OpenClip/.DS_Store', 'rb').read()
-for name in ['.background', '.VolumeIcon.icns', 'OpenClip.app', 'Applications']:
-    for m in re.finditer(re.escape(name.encode('utf-16-be')), d):
-        tail = d[m.end():m.end() + 40]
-        if tail[:4] == b'Iloc':
-            print(name, struct.unpack('>ii', tail[12:20]))
+for m in re.finditer(b'Iloc', d):
+    s = m.start()
+    for n in range(1, 40):
+        p = s - n * 2
+        if p >= 4 and struct.unpack('>I', d[p - 4:p])[0] == n:
+            print(d[p:s].decode('utf-16-be'), struct.unpack('>ii', d[s + 12:s + 20]))
+            break
 EOF
 ```
 
-Every x must come back under `660 - 64`, and every y under `384 - 84`. Then open the image
-four ways — Finder tab bar on and off, hidden files shown and not — and confirm none of them
-shows a scroll bar.
+Then open the image four ways — Finder tab bar on and off, hidden files shown and not — and
+confirm none of them shows a scroll bar.

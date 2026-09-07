@@ -23,8 +23,8 @@ jobs:
         with:
           xcode-version: '26.6'
 
-      - name: Install Tools (XcodeGen, xcbeautify & create-dmg)
-        run: brew install xcodegen xcbeautify create-dmg
+      - name: Install Tools (XcodeGen & xcbeautify)
+        run: brew install xcodegen xcbeautify
 
       - name: Generate Xcode Project
         run: xcodegen generate

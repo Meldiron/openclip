@@ -13,7 +13,7 @@ git submodule update --init            # populate Extensions/ catalog submodule 
 ./scripts/test.sh                      # full test suite (0 skips, ~45s)
 ./scripts/test.sh ActionRegistryTests  # single test class
 ./scripts/package_app.sh               # Release build -> build/OpenClip.zip + build/OpenClip.dmg
-./scripts/make_dmg.sh <app> <dmg>      # styled DMG only (needs `brew install create-dmg`; see docs/dmg.md)
+./scripts/make_dmg.sh <app> <dmg>      # styled DMG only (see docs/dmg.md)
 ./scripts/clean.sh                     # wipe DerivedData/build caches
 ```
 

@@ -20,11 +20,6 @@ if [ ! -d "$APP_PATH" ]; then
     exit 1
 fi
 
-if ! command -v create-dmg > /dev/null 2>&1; then
-    echo "error: create-dmg is required. Install it with: brew install create-dmg" >&2
-    exit 1
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -44,14 +39,22 @@ ICON_Y=210
 APP_X=170
 DROP_X=490
 
-# create-dmg parks every hidden item at (window_right + 100) so it sits outside the window.
-# Finder still counts it towards the scrollable area, which puts a horizontal scroll bar on
-# the window for anyone browsing with hidden files shown (Cmd-Shift-.). Pinning them inside
-# the canvas instead keeps the window scroll-free in both states; Finder resolves invisible
-# items by name even when it will not enumerate them.
-# They reuse the two real icon columns: an item further out would widen the content box, and
-# one nearer the edge makes Finder nudge every icon inwards to fit its label cell.
-HIDDEN_Y=90
+# dmgbuild writes the .DS_Store directly through the ds_store/mac_alias modules rather than
+# driving Finder over AppleScript, so it needs no GUI session and only the items listed in
+# icon_locations get a saved position. Leaving the hidden files (.background.tiff,
+# .VolumeIcon.icns) unpositioned is what every shipping DMG does; give them one and Finder
+# counts it towards the scrollable area, putting a scroll bar on the window for anyone
+# browsing with hidden files shown.
+DMGBUILD="$(command -v dmgbuild || true)"
+if [ -z "$DMGBUILD" ]; then
+    VENV_DIR="$PROJECT_DIR/build/.dmg-venv"
+    if [ ! -x "$VENV_DIR/bin/dmgbuild" ]; then
+        echo "==> Installing dmgbuild into build/.dmg-venv..."
+        python3 -m venv "$VENV_DIR"
+        "$VENV_DIR/bin/pip" install --quiet dmgbuild
+    fi
+    DMGBUILD="$VENV_DIR/bin/dmgbuild"
+fi
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -77,32 +80,34 @@ for SPEC in "16 16x16" "32 16x16@2x" "32 32x32" "64 32x32@2x" "128 128x128" "256
 done
 iconutil -c icns "$ICONSET" -o "$WORK_DIR/VolumeIcon.icns"
 
+APP_NAME="$(basename "$APP_PATH")"
+
+cat > "$WORK_DIR/settings.py" <<PYTHON
+format = "UDZO"
+files = ["$APP_PATH"]
+symlinks = {"Applications": "/Applications"}
+icon = "$WORK_DIR/VolumeIcon.icns"
+background = "$WORK_DIR/background.tiff"
+
+default_view = "icon-view"
+show_status_bar = False
+show_toolbar = False
+show_pathbar = False
+show_sidebar = False
+
+window_rect = ((200, 100000), ($WINDOW_W, $WINDOW_H))
+icon_size = $ICON_SIZE
+text_size = $TEXT_SIZE
+icon_locations = {
+    "$APP_NAME": ($APP_X, $ICON_Y),
+    "Applications": ($DROP_X, $ICON_Y),
+}
+hide_extensions = ["$APP_NAME"]
+PYTHON
+
 echo "==> Packaging $(basename "$OUTPUT_DMG")..."
 mkdir -p "$(dirname "$OUTPUT_DMG")"
 rm -f "$OUTPUT_DMG"
-
-STAGING_DIR="$WORK_DIR/staging"
-mkdir -p "$STAGING_DIR"
-cp -R "$APP_PATH" "$STAGING_DIR/"
-APP_NAME="$(basename "$APP_PATH")"
-
-create-dmg \
-    --volname "$VOLUME_NAME" \
-    --volicon "$WORK_DIR/VolumeIcon.icns" \
-    --background "$WORK_DIR/background.tiff" \
-    --window-pos 200 120 \
-    --window-size "$WINDOW_W" "$WINDOW_H" \
-    --icon-size "$ICON_SIZE" \
-    --text-size "$TEXT_SIZE" \
-    --icon "$APP_NAME" "$APP_X" "$ICON_Y" \
-    --icon ".background" "$APP_X" "$HIDDEN_Y" \
-    --icon ".VolumeIcon.icns" "$DROP_X" "$HIDDEN_Y" \
-    --hide-extension "$APP_NAME" \
-    --app-drop-link "$DROP_X" "$ICON_Y" \
-    --format UDZO \
-    --no-internet-enable \
-    --hdiutil-quiet \
-    "$OUTPUT_DMG" \
-    "$STAGING_DIR"
+"$DMGBUILD" -s "$WORK_DIR/settings.py" "$VOLUME_NAME" "$OUTPUT_DMG"
 
 echo "==> DMG created: $OUTPUT_DMG"
