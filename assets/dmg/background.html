@@ -6,9 +6,9 @@
 <meta charset="utf-8">
 <style>
   :root {
-    --brand: #0084FF;
-    --ink: #2D2D2D;
-    --muted: #86868B;
+    --brand: #0071e3;
+    --ink: #1d1d1f;
+    --muted: #86868b;
     --canvas-w: 660px;
     --canvas-h: 380px;
     --icon-y: 210px;
@@ -29,11 +29,11 @@
      around it that has to be indistinguishable from the artwork. */
   body {
     position: relative;
-    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
     -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(460px 300px at 50% 55%, rgba(0, 132, 255, 0.10) 0%, rgba(0, 132, 255, 0) 70%),
-      radial-gradient(620px 360px at 50% 118%, rgba(45, 45, 45, 0.05) 0%, rgba(45, 45, 45, 0) 62%),
+      radial-gradient(460px 300px at 50% 55%, rgba(0, 113, 227, 0.10) 0%, rgba(0, 113, 227, 0) 70%),
+      radial-gradient(620px 360px at 50% 118%, rgba(29, 29, 31, 0.05) 0%, rgba(29, 29, 31, 0) 62%),
       #FFFFFF;
   }
 
@@ -48,7 +48,7 @@
   .title {
     font-size: 25px;
     font-weight: 600;
-    letter-spacing: -0.4px;
+    letter-spacing: -0.6px;
     color: var(--ink);
   }
 
@@ -59,7 +59,7 @@
     color: var(--muted);
   }
 
-  .subtitle strong { font-weight: 590; color: #5A5A5F; }
+  .subtitle strong { font-weight: 590; color: #6e6e73; }
 
   .arrow {
     position: absolute;
@@ -92,13 +92,13 @@
   <svg class="arrow" viewBox="0 0 168 48" fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="trail" x1="0" y1="0" x2="168" y2="0" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stop-color="#0084FF" stop-opacity="0"/>
-        <stop offset="0.45" stop-color="#0084FF" stop-opacity="0.45"/>
-        <stop offset="1" stop-color="#0084FF" stop-opacity="1"/>
+        <stop offset="0" stop-color="#0071e3" stop-opacity="0"/>
+        <stop offset="0.45" stop-color="#0071e3" stop-opacity="0.45"/>
+        <stop offset="1" stop-color="#0071e3" stop-opacity="1"/>
       </linearGradient>
     </defs>
     <path d="M4 24H140" stroke="url(#trail)" stroke-width="5" stroke-linecap="round"/>
-    <path d="M138 12L156 24L138 36" stroke="#0084FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M138 12L156 24L138 36" stroke="#0071e3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
 
   <div class="footer">

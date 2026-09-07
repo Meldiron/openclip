@@ -111,6 +111,10 @@ inside a 660 × 400 window — so they scroll vertically for anyone with the tab
 
 ## Design rules
 
+- **The palette comes from the marketing site**, not the app icon: accent `#0071e3`, ink
+  `#1d1d1f`, secondary `#86868b`, on the SF Pro Display stack with tight tracking. The app
+  icon's blue is `#0084FF`, close but not the same — match the site so the installer and
+  getopenclip.app read as one brand.
 - **Never draw the app icon or the Applications folder into the background.** Both are real
   Finder items placed on top of it; painting them in produces doubled icons. The background
   holds decoration only — headline, arrow, footer.
