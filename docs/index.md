@@ -50,6 +50,7 @@ Welcome to the **OpenClip** technical documentation hub. OpenClip is a lightweig
 - [Text Selection Subsystem](architecture/text-selection.md) — Selection detection, the gate/resolver/strategy retrieval model, and non-destructive selection handling.
 - [Popup Panel & Positioning Math](architecture/popup-window.md) — `PopupPanel`, static layout math in `PopupPositioner`, and window lifecycle management.
 - [Logging](logging.md) — the single `Log` surface, category table, and per-subsystem filtering workflow.
+- [DMG Installer](dmg.md) — the styled disk image: HTML-rendered background, Retina TIFF, and the Finder layout contract.
 
 ### Developer Guide
 - [AGENTS.md — Authoring & Packaging Extensions](../Extensions/AGENTS.md) — **Start here.** Self-contained guide: manifest schema, all action kinds, options, requirements, groups, and the result surface.

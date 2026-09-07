@@ -4,6 +4,13 @@ All notable user-facing changes, feature additions, and improvements to OpenClip
 
 ---
 
+## Unreleased
+
+### Improvements
+- **Redesigned DMG Installer**: The disk image now opens as a proper install window — a branded background, "Install OpenClip" headline, the app icon and an `/Applications` drop link laid out either side of an arrow, and the app icon as the volume icon. The background is rendered from `assets/dmg/background.html` at 1× and 2× into a multi-representation TIFF, so it stays sharp on Retina displays and can be edited as HTML/CSS instead of a binary image. See [docs/dmg.md](docs/dmg.md).
+
+---
+
 ## v1.4.0 - 2026-09-07
 
 ### Highlights
