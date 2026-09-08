@@ -186,7 +186,7 @@ The full technical documentation lives in the [`docs/`](docs/index.md) hub:
 
 - 💬 **Discord**: [Join our Discord community](https://discord.gg/sy4MeFxf8) to share custom extensions, request features, and get support.
 - ⭐️ **AlternativeTo**: Find and support OpenClip on [AlternativeTo](https://alternativeto.net/software/openclip/about/?utm_source=badge&utm_medium=referral).
-- 🚀 **Product Hunt**: Check out our launch on [Product Hunt](https://www.producthunt.com/products/openclip).
+- 🚀 **Product Hunt**: Check out our launch on [Product Hunt](https://www.producthunt.com/products) - still in progress.
 - 🐛 **Issues & Feedback**: Report bugs or suggest ideas on [GitHub Issues](https://github.com/ganeshmshetty/openclip/issues).
 
 ## License
