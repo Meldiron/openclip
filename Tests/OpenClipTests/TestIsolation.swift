@@ -18,6 +18,7 @@ enum TestIsolation {
     static func reset() {
         ActionRegistry.shared.reset()
         ActionCustomizationManager.shared.reset()
+        ActionBindingStore.shared.reset()
         RuleEngine.shared.reset()
         ExtensionManager.shared.reset()
     }

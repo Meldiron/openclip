@@ -60,4 +60,14 @@ public enum ActionIdentity {
         action.chrome.rowStyle != .actionGroup &&
         !action.id.hasPrefix("vgroup.")
     }
+
+    /// Whether a user can assign an alias and a per-action hotkey. Only leaf actions that
+    /// actually run: groups, the AI Tools launcher, and the word-completion pseudo-action
+    /// are containers or non-palette rows.
+    public static func isBindable(_ action: any Action) -> Bool {
+        !action.chrome.launchesAI &&
+        !isCompletionPseudoAction(action) &&
+        action.chrome.popupBehavior != .showSubActions &&
+        action.chrome.rowStyle != .actionGroup
+    }
 }

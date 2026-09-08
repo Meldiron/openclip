@@ -497,7 +497,13 @@ public struct PopupSearchView: View {
 
     /// Indexes the palette's candidates (scoped children when scoped, the full catalog otherwise)
     /// once per palette entry. Runs only when the catalog/scope inputs change, never per body eval.
-    static func buildIndex(catalog: [any Action], scope: SearchScope?, usageRecency: [String: Int], presenter: any ActionPresenting) -> [ActionSearchIndex] {
+    static func buildIndex(
+        catalog: [any Action],
+        scope: SearchScope?,
+        usageRecency: [String: Int],
+        presenter: any ActionPresenting,
+        aliases: [String: String] = ActionBindingStore.shared.aliases
+    ) -> [ActionSearchIndex] {
         let candidates = scope?.children ?? catalog
         // The unscoped palette lists leaf actions only: container rows (group rows) are hidden so
         // the results never surface an inert row that performs `.none`. Their sub-actions are
@@ -515,7 +521,8 @@ public struct PopupSearchView: View {
                     title: action.displayTitle(using: presenter),
                     keywords: Self.searchKeywords(for: action, in: catalog),
                     action: action,
-                    usageRecency: usageRecency[action.id] ?? 0
+                    usageRecency: usageRecency[action.id] ?? 0,
+                    alias: aliases[action.id] ?? ""
                 )
             }
     }

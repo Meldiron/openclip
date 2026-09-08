@@ -1,5 +1,6 @@
 import XCTest
 import AppKit
+import KeyboardShortcuts
 @testable import OpenClip
 @testable import Core
 
@@ -70,6 +71,49 @@ final class HotkeyManagerTests: XCTestCase {
         // Expired pause in past: allowed
         store.set(.pauseUntilTimestamp, value: Date().timeIntervalSince1970 - 10)
         XCTAssertTrue(HotkeyManager.triggerAllowed(frontmost: app, settingsStore: store))
+    }
+
+    func testActionHotkeyNameIsDeterministicAndUnique() {
+        let nameA = KeyboardShortcuts.Name.actionHotkey("com.example.one")
+        let nameA2 = KeyboardShortcuts.Name.actionHotkey("com.example.one")
+        let nameB = KeyboardShortcuts.Name.actionHotkey("com.example.two")
+        XCTAssertEqual(nameA, nameA2)
+        XCTAssertNotEqual(nameA, nameB)
+    }
+
+    func testRunBoundActionPerformsActionOnController() async throws {
+        let controller = PopupWindowController()
+        let performedExpectation = expectation(description: "Bound action performed")
+        let action = BoundTestAction(id: "test.bound") {
+            performedExpectation.fulfill()
+        }
+        let app = AppIdentity(NSRunningApplication.current)
+        let selection = SelectionContext(
+            text: "sample text",
+            sourceApp: app,
+            cursorPosition: .zero,
+            selectionBounds: nil,
+            timestamp: Date(),
+            appPolicy: .default
+        )
+        let context = ActionContext(selection: selection, modifiers: [])
+        controller.runBoundAction(action, with: context)
+        await fulfillment(of: [performedExpectation], timeout: 2.0)
+    }
+}
+
+private struct BoundTestAction: Action {
+    let id: String
+    let title: String = "Test Bound"
+    let icon = ActionIcon.symbol("star")
+    let chrome = ActionChrome()
+    let onPerform: @MainActor () -> Void
+
+    @MainActor func isEnabled(for context: ActionContext) -> Bool { true }
+    @MainActor func matchInfo(for context: ActionContext) -> ActionMatchInfo? { nil }
+    @MainActor func perform(_ context: ActionContext) async throws -> ActionResult {
+        onPerform()
+        return .success
     }
 }
 

@@ -535,6 +535,57 @@ final class SubBarPanelControllerTests: XCTestCase {
         XCTAssertEqual(panel.frame.origin.x, 100)
     }
 
+    func testSubBarPanelControllerResizePanelPreservesRightEdgeAndHover() {
+        let controller = SubBarPanelController()
+        let parent = TestAction(id: "group.test", title: "Test Group", icon: .symbol("folder"))
+        let sub1 = TestAction(id: "sub.1", title: "Sub 1", icon: .text("One"))
+        let parentFrame = NSRect(x: 200, y: 300, width: 40, height: 29)
+
+        controller.show(
+            for: parent,
+            parentIndex: 0,
+            subActions: [sub1],
+            parentButtonScreenFrame: parentFrame,
+            isPinned: false,
+            searchResultsAbove: true,
+            effectiveTheme: "dark",
+            effectiveColorScheme: .dark,
+            scale: 1.0,
+            context: makeContext(),
+            presenter: ActionCustomizationManager.shared,
+            onResult: { _ in },
+            onRunAI: { _ in },
+            onRunLoadingAction: { _ in },
+            onWillPerformAction: { _ in },
+            onActionPerformed: { _ in },
+            onClickIntent: { .primary }
+        )
+
+        let initialFrame = controller.panelFrame
+        let initialMaxX = initialFrame.maxX
+
+        // Emulate clicking pagination chevron: set horizontalAnchor to .right
+        controller.panel.horizontalAnchor = .right
+
+        // Resize sub-bar to a wider size
+        let newSize = CGSize(width: initialFrame.width + 80, height: initialFrame.height)
+        let cursorScreenPoint = CGPoint(x: initialMaxX - 10, y: initialFrame.midY)
+        controller.resizePanel(to: newSize, mouseLocation: cursorScreenPoint)
+
+        XCTAssertEqual(controller.panelFrame.maxX, initialMaxX, accuracy: 0.5, "Right edge must stay pinned after resizePanel")
+        XCTAssertEqual(controller.panelFrame.width, newSize.width, accuracy: 0.5)
+        XCTAssertNotNil(SubBarHoverState.shared.location, "Hover location must be updated after resizePanel")
+
+        // Also test shrinking
+        let smallerSize = CGSize(width: max(100, initialFrame.width - 20), height: initialFrame.height)
+        controller.resizePanel(to: smallerSize, mouseLocation: CGPoint(x: initialMaxX - 10, y: initialFrame.midY))
+        XCTAssertEqual(controller.panelFrame.maxX, initialMaxX, accuracy: 0.5, "Right edge must stay pinned when shrinking")
+        XCTAssertEqual(controller.panelFrame.width, smallerSize.width, accuracy: 0.5)
+        XCTAssertNotNil(SubBarHoverState.shared.location)
+
+        controller.hide()
+    }
+
     func testSubBarVerticalPositionFollowsMainBarAbove() {
         let controller = SubBarPanelController()
         let parent = TestAction(id: "group.test", title: "Test Group", icon: .symbol("folder"))

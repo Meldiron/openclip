@@ -7,6 +7,7 @@
 import SwiftUI
 import AppKit
 import Core
+import KeyboardShortcuts
 
 @MainActor
 public struct EditActionSheet: View {
@@ -58,6 +59,7 @@ public struct EditActionSheet: View {
     @State private var manifestMissing: Bool = false
     @State private var showingSaveAlert: Bool = false
     @State private var saveAlertMessage: String = ""
+    @State private var aliasText: String = ""
 
     public init(action: any Action, configurationRequest: ConfigurationRequest? = nil) {
         self.action = action
@@ -147,6 +149,43 @@ public struct EditActionSheet: View {
                     )
                 }
                 .disabled(manifestMissing)
+
+                if ActionIdentity.isBindable(action) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("KEYBOARD")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.secondary)
+                            .padding(.leading, 4)
+
+                        InsetGroupCard {
+                            VStack(alignment: .leading, spacing: 0) {
+                                HStack(spacing: 12) {
+                                    Text("Alias")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    TextField("e.g. tr", text: $aliasText)
+                                        .textFieldStyle(.roundedBorder)
+                                        .frame(width: 120)
+                                        .disabled(manifestMissing)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+
+                                Divider()
+                                    .padding(.horizontal, 12)
+
+                                HStack(spacing: 12) {
+                                    Text("Hotkey")
+                                        .font(.subheadline)
+                                    Spacer()
+                                    KeyboardShortcuts.Recorder(for: .actionHotkey(action.id))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                            }
+                        }
+                    }
+                }
 
                 // Options Section (shown only when the action declares configurable options)
                 if !action.actionOptions.isEmpty {
@@ -316,6 +355,7 @@ public struct EditActionSheet: View {
     private func loadInitialState() {
         let override = ActionCustomizationManager.shared.override(for: action.id)
 
+        aliasText = ActionBindingStore.shared.alias(for: action.id) ?? ""
         customTitle = override?.customTitle ?? action.title
         initialStoredSymbol = Self.sanitizedStoredSymbol(override?.customIconSymbol, actionIcon: action.icon)
         seedBaseline(from: ActionCustomizationManager.shared.popupIcon(for: action))
@@ -419,6 +459,20 @@ public struct EditActionSheet: View {
     // MARK: - Saving
 
     private func saveChanges() async -> Bool {
+        if ActionIdentity.isBindable(action) {
+            switch ActionBindingStore.shared.setAlias(aliasText, for: action.id) {
+            case .accepted, .cleared:
+                break
+            case .invalid:
+                saveAlertMessage = String(localized: "Aliases can only use letters, numbers, and hyphens.")
+                showingSaveAlert = true
+                return false
+            case .collision:
+                saveAlertMessage = String(localized: "That alias is already used.")
+                showingSaveAlert = true
+                return false
+            }
+        }
         if appearanceResetPending {
             ActionCustomizationManager.shared.resetOverride(for: action.id)
             appearanceResetPending = false

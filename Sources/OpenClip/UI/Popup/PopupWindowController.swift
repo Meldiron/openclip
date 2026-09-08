@@ -1599,6 +1599,23 @@ public class PopupWindowController {
         return resolved.dismissesPopup
     }
 
+    /// Runs a leaf action from a per-action global hotkey. Reuses the on-screen session when the
+    /// popup is already up; otherwise opens on the retrieved selection so paste/preview still have
+    /// a delivery context, then performs.
+    func runBoundAction(_ action: any Action, with context: ActionContext, pasteAvailable: Bool? = nil) {
+        if panel?.isVisible != true {
+            show(for: context.selection, pasteAvailable: pasteAvailable)
+        } else if let pasteAvailable {
+            modeStore.canPaste = pasteAvailable
+        }
+        if ActionIdentity.isAIPreset(action) {
+            guard let preset = AIServiceManager.shared.preset(forActionID: action.id) else { return }
+            runAIPreset(prompt: AIServiceManager.shared.promptForPreset(preset), title: preset.title)
+            return
+        }
+        runAction(action, with: context, isSecondaryClick: false)
+    }
+
     /// Performs an action directly (the right-click path, which the bar's SwiftUI Button never
     /// fires) and routes its result through the standard dismissal + tree-walk, recording usage.
     /// Mirrors the left-click perform path in PopupView. The delivery context is built here from

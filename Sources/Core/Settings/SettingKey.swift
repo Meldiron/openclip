@@ -62,6 +62,8 @@ public extension SettingKey where Value == [String: String] {
     static var extensionTrustHashes: SettingKey<[String: String]> { SettingKey<[String: String]>("extension.trustHashes", defaultValue: [:]) }
     /// packageID -> "store" | "local"
     static var extensionSources: SettingKey<[String: String]> { SettingKey<[String: String]>("extension.sources", defaultValue: [:]) }
+    /// actionID -> lowercase exact-match search alias
+    static var actionAliases: SettingKey<[String: String]> { SettingKey<[String: String]>("action.aliases", defaultValue: [:]) }
 }
 
 public extension SettingKey where Value == Bool {

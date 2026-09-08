@@ -1093,6 +1093,62 @@
         }
       }
     },
+    "Alias": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "别名"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別名"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alias"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エイリアス"
+          }
+        }
+      }
+    },
+    "Aliases can only use letters, numbers, and hyphens.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "别名只能使用字母、数字和连字符。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別名只能使用字母、數字和連字符。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les alias ne peuvent contenir que des lettres, des chiffres et des tirets."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エイリアスに使えるのは英数字とハイフンだけです。"
+          }
+        }
+      }
+    },
     "All": {
       "localizations": {
         "zh-Hans": {
@@ -5373,6 +5429,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "水平位置"
+          }
+        }
+      }
+    },
+    "Hotkey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷键"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "快捷鍵"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raccourci"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホットキー"
           }
         }
       }
@@ -10557,6 +10641,34 @@
         }
       }
     },
+    "That alias is already used.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "该别名已被使用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "該別名已被使用。"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cet alias est déjà utilisé."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのエイリアスはすでに使われています。"
+          }
+        }
+      }
+    },
     "The AI provider returned an empty or unreadable response.": {
       "localizations": {
         "zh-Hans": {
@@ -11925,6 +12037,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "例: com.apple.Terminal"
+          }
+        }
+      }
+    },
+    "e.g. tr": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例如 tr"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例如 tr"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ex. tr"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例: tr"
           }
         }
       }
